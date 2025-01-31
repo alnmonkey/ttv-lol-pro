@@ -2,8 +2,10 @@ import pageScriptURL from "url:../page/page.ts";
 import workerScriptURL from "url:../page/worker.ts";
 import browser, { Storage } from "webextension-polyfill";
 import findChannelFromTwitchTvUrl from "../common/ts/findChannelFromTwitchTvUrl";
+import isChannelWhitelisted from "../common/ts/isChannelWhitelisted";
 import isChromium from "../common/ts/isChromium";
 import { getStreamStatus, setStreamStatus } from "../common/ts/streamStatus";
+import wasChannelSubscriber from "../common/ts/wasChannelSubscriber";
 import store from "../store";
 import type { State } from "../store/types";
 import { MessageType } from "../types";
@@ -64,6 +66,7 @@ function onStoreChange(changes: Record<string, Storage.StorageChange>) {
   // This is mainly to reduce the amount of messages sent to the page script.
   // (Also to reduce the number of console logs.)
   const ignoredKeys: (keyof State)[] = [
+    "activeChannelSubscriptions",
     "adLog",
     "dnsResponses",
     "openedTwitchTabs",
@@ -102,61 +105,117 @@ function onPageMessage(event: MessageEvent) {
   const message = event.data?.message;
   if (!message) return;
 
-  switch (message.type) {
-    case MessageType.GetStoreState:
-      const sendStoreState = () => {
-        window.postMessage({
-          type: MessageType.PageScriptMessage,
-          message: {
-            type: MessageType.GetStoreStateResponse,
-            state: JSON.parse(JSON.stringify(store.state)),
-          },
-        });
-      };
-      if (store.readyState === "complete") sendStoreState();
-      else store.addEventListener("load", sendStoreState);
-      break;
-    case MessageType.EnableFullMode:
-      try {
-        browser.runtime.sendMessage(message);
-      } catch (error) {
-        console.error(
-          "[TTV LOL PRO] Failed to send EnableFullMode message",
-          error
-        );
-      }
-      break;
-    case MessageType.DisableFullMode:
-      try {
-        browser.runtime.sendMessage(message);
-      } catch (error) {
-        console.error(
-          "[TTV LOL PRO] Failed to send DisableFullMode message",
-          error
-        );
-      }
-      break;
-    case MessageType.UsherResponse:
-      try {
-        browser.runtime.sendMessage(message);
-      } catch (error) {
-        console.error(
-          "[TTV LOL PRO] Failed to send UsherResponse message",
-          error
-        );
-      }
-      break;
-    case MessageType.MultipleAdBlockersInUse:
-      const channelName = findChannelFromTwitchTvUrl(location.href);
-      if (!channelName) break;
-      const streamStatus = getStreamStatus(channelName);
-      setStreamStatus(channelName, {
-        ...(streamStatus ?? { proxied: false }),
-        reason: "Another Twitch ad blocker is in use",
+  // GetStoreState
+  if (message.type === MessageType.GetStoreState) {
+    const sendStoreState = () => {
+      window.postMessage({
+        type: MessageType.PageScriptMessage,
+        message: {
+          type: MessageType.GetStoreStateResponse,
+          state: JSON.parse(JSON.stringify(store.state)),
+        },
       });
-      break;
-    case MessageType.ClearStats:
-      clearStats(message.channelName);
-      break;
+    };
+    if (store.readyState === "complete") sendStoreState();
+    else store.addEventListener("load", sendStoreState);
+  }
+  // EnableFullMode
+  else if (message.type === MessageType.EnableFullMode) {
+    try {
+      browser.runtime.sendMessage(message);
+    } catch (error) {
+      console.error(
+        "[TTV LOL PRO] Failed to send EnableFullMode message",
+        error
+      );
+    }
+  }
+  // DisableFullMode
+  else if (message.type === MessageType.DisableFullMode) {
+    try {
+      browser.runtime.sendMessage(message);
+    } catch (error) {
+      console.error(
+        "[TTV LOL PRO] Failed to send DisableFullMode message",
+        error
+      );
+    }
+  }
+  // ChannelSubscriptionStatus
+  else if (message.type === MessageType.ChannelSubscriptionStatus) {
+    const { channelName, isSubscribed, scope } = message;
+    const wasSubscribed = wasChannelSubscriber(channelName);
+    let isWhitelisted = isChannelWhitelisted(channelName);
+    console.log(
+      "[TTV LOL PRO] Received channel subscription status message. Current state:",
+      {
+        wasSubscribed,
+        isSubscribed,
+        isWhitelisted,
+      }
+    );
+    if (store.state.whitelistChannelSubscriptions && channelName != null) {
+      if (!wasSubscribed && isSubscribed) {
+        store.state.activeChannelSubscriptions.push(channelName);
+        // Add to whitelist.
+        if (!isWhitelisted) {
+          console.log(`[TTV LOL PRO] Adding '${channelName}' to whitelist.`);
+          store.state.whitelistedChannels.push(channelName);
+          isWhitelisted = true;
+        }
+      } else if (wasSubscribed && !isSubscribed) {
+        store.state.activeChannelSubscriptions =
+          store.state.activeChannelSubscriptions.filter(
+            c => c.toLowerCase() !== channelName.toLowerCase()
+          );
+        // Remove from whitelist.
+        if (isWhitelisted) {
+          console.log(
+            `[TTV LOL PRO] Removing '${channelName}' from whitelist.`
+          );
+          store.state.whitelistedChannels =
+            store.state.whitelistedChannels.filter(
+              c => c.toLowerCase() !== channelName.toLowerCase()
+            );
+          isWhitelisted = false;
+        }
+      }
+    }
+    console.log("[TTV LOL PRO] Sending channel subscription status response.");
+    window.postMessage({
+      type:
+        scope === "page" // TODO: Is this necessary? Isn't the scope always "worker"?
+          ? MessageType.PageScriptMessage
+          : MessageType.WorkerScriptMessage,
+      message: {
+        type: MessageType.ChannelSubscriptionStatusResponse,
+        isWhitelisted: isWhitelisted,
+      },
+    });
+  }
+  // UsherResponse
+  else if (message.type === MessageType.UsherResponse) {
+    try {
+      browser.runtime.sendMessage(message);
+    } catch (error) {
+      console.error(
+        "[TTV LOL PRO] Failed to send UsherResponse message",
+        error
+      );
+    }
+  }
+  // MultipleAdBlockersInUse
+  else if (message.type === MessageType.MultipleAdBlockersInUse) {
+    const channelName = findChannelFromTwitchTvUrl(location.href);
+    if (!channelName) return;
+    const streamStatus = getStreamStatus(channelName);
+    setStreamStatus(channelName, {
+      ...(streamStatus ?? { proxied: false }),
+      reason: "Another Twitch ad blocker is in use",
+    });
+  }
+  // ClearStats
+  else if (message.type === MessageType.ClearStats) {
+    clearStats(message.channelName);
   }
 }

@@ -6,6 +6,7 @@ export type ReadyState = "loading" | "complete";
 export type StorageAreaName = "local" | "managed" | "sync";
 
 export interface State {
+  activeChannelSubscriptions: string[];
   adLog: AdLogEntry[];
   adLogEnabled: boolean;
   adLogLastSent: number;
@@ -19,6 +20,7 @@ export interface State {
   passportLevel: number;
   streamStatuses: Record<string, StreamStatus>;
   videoWeaverUrlsByChannel: Record<string, string[]>;
+  whitelistChannelSubscriptions: boolean;
   whitelistedChannels: string[];
 }
 

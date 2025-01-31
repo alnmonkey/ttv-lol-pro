@@ -75,6 +75,9 @@ const passportLevelProxyUsageWwwElement = $(
 const whitelistedChannelsListElement = $(
   "#whitelisted-channels-list"
 ) as HTMLUListElement;
+const whitelistSubscriptionsCheckboxElement = $(
+  "#whitelist-subscriptions-checkbox"
+) as HTMLInputElement;
 // Proxies
 const optimizedProxiesInputElement = $("#optimized") as HTMLInputElement;
 const optimizedProxiesListElement = $(
@@ -162,6 +165,12 @@ function main() {
       }
       return [true];
     },
+  });
+  whitelistSubscriptionsCheckboxElement.checked =
+    store.state.whitelistChannelSubscriptions;
+  whitelistSubscriptionsCheckboxElement.addEventListener("change", () => {
+    store.state.whitelistChannelSubscriptions =
+      whitelistSubscriptionsCheckboxElement.checked;
   });
   // Proxies
   if (store.state.optimizedProxiesEnabled)
@@ -548,6 +557,7 @@ exportButtonElement.addEventListener("click", () => {
     optimizedProxies: store.state.optimizedProxies,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
     passportLevel: store.state.passportLevel,
+    whitelistChannelSubscriptions: store.state.whitelistChannelSubscriptions,
     whitelistedChannels: store.state.whitelistedChannels,
   };
   saveFile(

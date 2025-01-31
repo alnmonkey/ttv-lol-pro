@@ -265,7 +265,42 @@ export function getFetch(pageState: PageState): typeof fetch {
         encodeURIComponent('"player_type":"frontpage"')
       );
       const channelName = findChannelFromUsherUrl(url);
-      const isWhitelisted = isChannelWhitelisted(channelName, pageState);
+      let isWhitelisted = isChannelWhitelisted(channelName, pageState);
+      if (
+        pageState.state?.whitelistChannelSubscriptions &&
+        channelName != null
+      ) {
+        const wasSubscribed = wasChannelSubscriber(channelName, pageState);
+        const isSubscribed = url.includes(
+          encodeURIComponent('"subscriber":true')
+        );
+        // const isSubscribed = url.includes(
+        //   encodeURIComponent("aminematue")
+        // );
+        const hasSubStatusChanged =
+          (wasSubscribed && !isSubscribed) || (!wasSubscribed && isSubscribed);
+        if (hasSubStatusChanged) {
+          console.log(
+            "[TTV LOL PRO] Channel subscription status changed. Sending message…"
+          );
+          try {
+            const response =
+              await pageState.sendMessageToContentScriptAndWaitForResponse(
+                pageState.scope,
+                {
+                  type: MessageType.ChannelSubscriptionStatus,
+                  scope: pageState.scope,
+                  channelName,
+                  isSubscribed,
+                },
+                MessageType.ChannelSubscriptionStatusResponse
+              );
+            if (typeof response.isWhitelisted === "boolean") {
+              isWhitelisted = response.isWhitelisted;
+            }
+          } catch {}
+        }
+      }
       if (!isLivestream || isFrontpage || isWhitelisted) {
         console.log(
           "[TTV LOL PRO] Not flagging Usher request: not a livestream, is frontpage, or is whitelisted."
@@ -621,6 +656,18 @@ function isChannelWhitelisted(
       channel.toLowerCase()
     ) ?? [];
   return whitelistedChannelsLower.includes(channelName.toLowerCase());
+}
+
+function wasChannelSubscriber(
+  channelName: string | null | undefined,
+  pageState: PageState
+): boolean {
+  if (!channelName) return false;
+  const activeChannelSubscriptionsLower =
+    pageState.state?.activeChannelSubscriptions.map(channel =>
+      channel.toLowerCase()
+    ) ?? [];
+  return activeChannelSubscriptionsLower.includes(channelName.toLowerCase());
 }
 
 async function flagRequest(
