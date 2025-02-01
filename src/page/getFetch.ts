@@ -28,9 +28,11 @@ export function getFetch(pageState: PageState): typeof fetch {
   // Listen for NewPlaybackAccessToken messages from the worker script.
   if (pageState.scope === "page") {
     self.addEventListener("message", async event => {
-      if (event.data?.type !== MessageType.PageScriptMessage) return;
+      if (!event.data || event.data.type !== MessageType.PageScriptMessage) {
+        return;
+      }
 
-      const message = event.data?.message;
+      const { message } = event.data;
       if (!message) return;
 
       switch (message.type) {
@@ -58,13 +60,14 @@ export function getFetch(pageState: PageState): typeof fetch {
   // Listen for ClearStats messages from the page script.
   self.addEventListener("message", event => {
     if (
-      event.data?.type !== MessageType.PageScriptMessage &&
-      event.data?.type !== MessageType.WorkerScriptMessage
+      !event.data ||
+      (event.data.type !== MessageType.PageScriptMessage &&
+        event.data.type !== MessageType.WorkerScriptMessage)
     ) {
       return;
     }
 
-    const message = event.data?.message;
+    const { message } = event.data;
     if (!message) return;
 
     switch (message.type) {
@@ -265,6 +268,36 @@ export function getFetch(pageState: PageState): typeof fetch {
         encodeURIComponent('"player_type":"frontpage"')
       );
       const channelName = findChannelFromUsherUrl(url);
+      if (
+        pageState.state?.whitelistChannelSubscriptions &&
+        channelName != null
+      ) {
+        const wasSubscribed = wasChannelSubscriber(channelName, pageState);
+        const isSubscribed = url.includes(
+          encodeURIComponent('"subscriber":true')
+        );
+        const hasSubStatusChanged =
+          (wasSubscribed && !isSubscribed) || (!wasSubscribed && isSubscribed);
+        if (hasSubStatusChanged) {
+          try {
+            const response =
+              await pageState.sendMessageToContentScriptAndWaitForResponse(
+                pageState.scope,
+                {
+                  type: MessageType.ChannelSubStatusChange,
+                  channelName,
+                  wasSubscribed,
+                  isSubscribed,
+                },
+                MessageType.ChannelSubStatusChangeResponse
+              );
+            if (typeof response.whitelistedChannels === "object") {
+              pageState.state.whitelistedChannels =
+                response.whitelistedChannels;
+            }
+          } catch {}
+        }
+      }
       const isWhitelisted = isChannelWhitelisted(channelName, pageState);
       if (!isLivestream || isFrontpage || isWhitelisted) {
         console.log(
@@ -616,11 +649,23 @@ function isChannelWhitelisted(
   pageState: PageState
 ): boolean {
   if (!channelName) return false;
-  const whitelistedChannelsLower =
-    pageState.state?.whitelistedChannels.map(channel =>
-      channel.toLowerCase()
-    ) ?? [];
-  return whitelistedChannelsLower.includes(channelName.toLowerCase());
+  return (
+    pageState.state?.whitelistedChannels.some(
+      c => c.toLowerCase() === channelName.toLowerCase()
+    ) ?? false
+  );
+}
+
+function wasChannelSubscriber(
+  channelName: string | null | undefined,
+  pageState: PageState
+): boolean {
+  if (!channelName) return false;
+  return (
+    pageState.state?.activeChannelSubscriptions.some(
+      c => c.toLowerCase() === channelName.toLowerCase()
+    ) ?? false
+  );
 }
 
 async function flagRequest(

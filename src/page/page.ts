@@ -130,9 +130,9 @@ window.addEventListener("message", event => {
     return;
   }
 
-  if (event.data?.type !== MessageType.PageScriptMessage) return;
+  if (!event.data || event.data.type !== MessageType.PageScriptMessage) return;
 
-  const message = event.data?.message;
+  const { message } = event.data;
   if (!message) return;
 
   switch (message.type) {
