@@ -265,7 +265,6 @@ export function getFetch(pageState: PageState): typeof fetch {
         encodeURIComponent('"player_type":"frontpage"')
       );
       const channelName = findChannelFromUsherUrl(url);
-      let isWhitelisted = isChannelWhitelisted(channelName, pageState);
       if (
         pageState.state?.whitelistChannelSubscriptions &&
         channelName != null
@@ -274,33 +273,29 @@ export function getFetch(pageState: PageState): typeof fetch {
         const isSubscribed = url.includes(
           encodeURIComponent('"subscriber":true')
         );
-        // const isSubscribed = url.includes(
-        //   encodeURIComponent("aminematue")
-        // );
         const hasSubStatusChanged =
           (wasSubscribed && !isSubscribed) || (!wasSubscribed && isSubscribed);
         if (hasSubStatusChanged) {
-          console.log(
-            "[TTV LOL PRO] Channel subscription status changed. Sending message…"
-          );
           try {
             const response =
               await pageState.sendMessageToContentScriptAndWaitForResponse(
                 pageState.scope,
                 {
-                  type: MessageType.ChannelSubscriptionStatus,
-                  scope: pageState.scope,
+                  type: MessageType.ChannelSubStatusChange,
                   channelName,
+                  wasSubscribed,
                   isSubscribed,
                 },
-                MessageType.ChannelSubscriptionStatusResponse
+                MessageType.ChannelSubStatusChangeResponse
               );
-            if (typeof response.isWhitelisted === "boolean") {
-              isWhitelisted = response.isWhitelisted;
+            if (typeof response.whitelistedChannels === "object") {
+              pageState.state.whitelistedChannels =
+                response.whitelistedChannels;
             }
           } catch {}
         }
       }
+      const isWhitelisted = isChannelWhitelisted(channelName, pageState);
       if (!isLivestream || isFrontpage || isWhitelisted) {
         console.log(
           "[TTV LOL PRO] Not flagging Usher request: not a livestream, is frontpage, or is whitelisted."

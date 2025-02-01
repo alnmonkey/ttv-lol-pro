@@ -13,7 +13,9 @@ function sendMessage(
   type: MessageType,
   message: any
 ): void {
-  if (!recipient) return;
+  if (!recipient) {
+    return console.warn("[TTV LOL PRO] Message recipient is undefined.");
+  }
   recipient.postMessage({
     type,
     message,
@@ -30,7 +32,7 @@ async function sendMessageAndWaitForResponse(
 ): Promise<any> {
   return new Promise((resolve, reject) => {
     if (!recipient) {
-      console.warn("[TTV LOL PRO] Recipient is undefined.");
+      console.warn("[TTV LOL PRO] Message recipient is undefined.");
       resolve(undefined);
       return;
     }
@@ -46,7 +48,12 @@ async function sendMessageAndWaitForResponse(
     };
 
     self.addEventListener("message", listener);
-    sendMessage(recipient, type, message);
+    recipient.postMessage({
+      type,
+      message,
+      responseType,
+      responseMessageType,
+    });
     setTimeout(() => {
       self.removeEventListener("message", listener);
       reject(new Error("Timed out waiting for message response."));

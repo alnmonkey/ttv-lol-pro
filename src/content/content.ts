@@ -5,7 +5,6 @@ import findChannelFromTwitchTvUrl from "../common/ts/findChannelFromTwitchTvUrl"
 import isChannelWhitelisted from "../common/ts/isChannelWhitelisted";
 import isChromium from "../common/ts/isChromium";
 import { getStreamStatus, setStreamStatus } from "../common/ts/streamStatus";
-import wasChannelSubscriber from "../common/ts/wasChannelSubscriber";
 import store from "../store";
 import type { State } from "../store/types";
 import { MessageType } from "../types";
@@ -100,12 +99,12 @@ function onBackgroundMessage(message: any): undefined {
 }
 
 function onPageMessage(event: MessageEvent) {
-  if (event.data?.type !== MessageType.ContentScriptMessage) return;
+  if (!event.data) return;
+  if (event.data.type !== MessageType.ContentScriptMessage) return;
 
-  const message = event.data?.message;
+  const { message, responseType, responseMessageType } = event.data;
   if (!message) return;
 
-  // GetStoreState
   if (message.type === MessageType.GetStoreState) {
     const sendStoreState = () => {
       window.postMessage({
@@ -119,7 +118,7 @@ function onPageMessage(event: MessageEvent) {
     if (store.readyState === "complete") sendStoreState();
     else store.addEventListener("load", sendStoreState);
   }
-  // EnableFullMode
+  // ---
   else if (message.type === MessageType.EnableFullMode) {
     try {
       browser.runtime.sendMessage(message);
@@ -130,7 +129,7 @@ function onPageMessage(event: MessageEvent) {
       );
     }
   }
-  // DisableFullMode
+  // ---
   else if (message.type === MessageType.DisableFullMode) {
     try {
       browser.runtime.sendMessage(message);
@@ -141,19 +140,16 @@ function onPageMessage(event: MessageEvent) {
       );
     }
   }
-  // ChannelSubscriptionStatus
-  else if (message.type === MessageType.ChannelSubscriptionStatus) {
-    const { channelName, isSubscribed, scope } = message;
-    const wasSubscribed = wasChannelSubscriber(channelName);
-    let isWhitelisted = isChannelWhitelisted(channelName);
-    console.log(
-      "[TTV LOL PRO] Received channel subscription status message. Current state:",
-      {
-        wasSubscribed,
-        isSubscribed,
-        isWhitelisted,
-      }
-    );
+  // ---
+  else if (message.type === MessageType.ChannelSubStatusChange) {
+    const { channelName, wasSubscribed, isSubscribed } = message;
+    const isWhitelisted = isChannelWhitelisted(channelName);
+    console.log("[TTV LOL PRO] ChannelSubStatusChange", {
+      channelName,
+      wasSubscribed,
+      isSubscribed,
+      isWhitelisted,
+    });
     if (store.state.whitelistChannelSubscriptions && channelName != null) {
       if (!wasSubscribed && isSubscribed) {
         store.state.activeChannelSubscriptions.push(channelName);
@@ -161,7 +157,6 @@ function onPageMessage(event: MessageEvent) {
         if (!isWhitelisted) {
           console.log(`[TTV LOL PRO] Adding '${channelName}' to whitelist.`);
           store.state.whitelistedChannels.push(channelName);
-          isWhitelisted = true;
         }
       } else if (wasSubscribed && !isSubscribed) {
         store.state.activeChannelSubscriptions =
@@ -177,23 +172,20 @@ function onPageMessage(event: MessageEvent) {
             store.state.whitelistedChannels.filter(
               c => c.toLowerCase() !== channelName.toLowerCase()
             );
-          isWhitelisted = false;
         }
       }
     }
-    console.log("[TTV LOL PRO] Sending channel subscription status response.");
     window.postMessage({
-      type:
-        scope === "page" // TODO: Is this necessary? Isn't the scope always "worker"?
-          ? MessageType.PageScriptMessage
-          : MessageType.WorkerScriptMessage,
+      type: responseType,
       message: {
-        type: MessageType.ChannelSubscriptionStatusResponse,
-        isWhitelisted: isWhitelisted,
+        type: responseMessageType,
+        whitelistedChannels: JSON.parse(
+          JSON.stringify(store.state.whitelistedChannels)
+        ),
       },
     });
   }
-  // UsherResponse
+  // ---
   else if (message.type === MessageType.UsherResponse) {
     try {
       browser.runtime.sendMessage(message);
@@ -204,7 +196,7 @@ function onPageMessage(event: MessageEvent) {
       );
     }
   }
-  // MultipleAdBlockersInUse
+  // ---
   else if (message.type === MessageType.MultipleAdBlockersInUse) {
     const channelName = findChannelFromTwitchTvUrl(location.href);
     if (!channelName) return;
@@ -214,7 +206,7 @@ function onPageMessage(event: MessageEvent) {
       reason: "Another Twitch ad blocker is in use",
     });
   }
-  // ClearStats
+  // ---
   else if (message.type === MessageType.ClearStats) {
     clearStats(message.channelName);
   }
