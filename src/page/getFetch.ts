@@ -651,11 +651,11 @@ function isChannelWhitelisted(
   pageState: PageState
 ): boolean {
   if (!channelName) return false;
-  const whitelistedChannelsLower =
-    pageState.state?.whitelistedChannels.map(channel =>
-      channel.toLowerCase()
-    ) ?? [];
-  return whitelistedChannelsLower.includes(channelName.toLowerCase());
+  return (
+    pageState.state?.whitelistedChannels.some(
+      c => c.toLowerCase() === channelName.toLowerCase()
+    ) ?? false
+  );
 }
 
 function wasChannelSubscriber(
@@ -663,11 +663,11 @@ function wasChannelSubscriber(
   pageState: PageState
 ): boolean {
   if (!channelName) return false;
-  const activeChannelSubscriptionsLower =
-    pageState.state?.activeChannelSubscriptions.map(channel =>
-      channel.toLowerCase()
-    ) ?? [];
-  return activeChannelSubscriptionsLower.includes(channelName.toLowerCase());
+  return (
+    pageState.state?.activeChannelSubscriptions.some(
+      c => c.toLowerCase() === channelName.toLowerCase()
+    ) ?? false
+  );
 }
 
 async function flagRequest(

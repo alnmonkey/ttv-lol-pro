@@ -4,9 +4,7 @@ export default function wasChannelSubscriber(
   channelName: string | null
 ): boolean {
   if (!channelName) return false;
-  const activeChannelSubscriptionsLower =
-    store.state.activeChannelSubscriptions.map(channel =>
-      channel.toLowerCase()
-    );
-  return activeChannelSubscriptionsLower.includes(channelName.toLowerCase());
+  return store.state.activeChannelSubscriptions.some(
+    c => c.toLowerCase() === channelName.toLowerCase()
+  );
 }
