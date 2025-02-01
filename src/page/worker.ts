@@ -47,9 +47,11 @@ const pageState: PageState = {
 self.fetch = getFetch(pageState);
 
 self.addEventListener("message", event => {
-  if (event.data?.type !== MessageType.WorkerScriptMessage) return;
+  if (!event.data || event.data.type !== MessageType.WorkerScriptMessage) {
+    return;
+  }
 
-  const message = event.data?.message;
+  const { message } = event.data;
   if (!message) return;
 
   switch (message.type) {

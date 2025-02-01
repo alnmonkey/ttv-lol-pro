@@ -28,9 +28,11 @@ export function getFetch(pageState: PageState): typeof fetch {
   // Listen for NewPlaybackAccessToken messages from the worker script.
   if (pageState.scope === "page") {
     self.addEventListener("message", async event => {
-      if (event.data?.type !== MessageType.PageScriptMessage) return;
+      if (!event.data || event.data.type !== MessageType.PageScriptMessage) {
+        return;
+      }
 
-      const message = event.data?.message;
+      const { message } = event.data;
       if (!message) return;
 
       switch (message.type) {
@@ -58,13 +60,14 @@ export function getFetch(pageState: PageState): typeof fetch {
   // Listen for ClearStats messages from the page script.
   self.addEventListener("message", event => {
     if (
-      event.data?.type !== MessageType.PageScriptMessage &&
-      event.data?.type !== MessageType.WorkerScriptMessage
+      !event.data ||
+      (event.data.type !== MessageType.PageScriptMessage &&
+        event.data.type !== MessageType.WorkerScriptMessage)
     ) {
       return;
     }
 
-    const message = event.data?.message;
+    const { message } = event.data;
     if (!message) return;
 
     switch (message.type) {

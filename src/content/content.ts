@@ -65,7 +65,6 @@ function onStoreChange(changes: Record<string, Storage.StorageChange>) {
   // This is mainly to reduce the amount of messages sent to the page script.
   // (Also to reduce the number of console logs.)
   const ignoredKeys: (keyof State)[] = [
-    "activeChannelSubscriptions",
     "adLog",
     "dnsResponses",
     "openedTwitchTabs",
@@ -99,8 +98,9 @@ function onBackgroundMessage(message: any): undefined {
 }
 
 function onPageMessage(event: MessageEvent) {
-  if (!event.data) return;
-  if (event.data.type !== MessageType.ContentScriptMessage) return;
+  if (!event.data || event.data.type !== MessageType.ContentScriptMessage) {
+    return;
+  }
 
   const { message, responseType, responseMessageType } = event.data;
   if (!message) return;

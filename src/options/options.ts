@@ -169,8 +169,12 @@ function main() {
   whitelistSubscriptionsCheckboxElement.checked =
     store.state.whitelistChannelSubscriptions;
   whitelistSubscriptionsCheckboxElement.addEventListener("change", () => {
-    store.state.whitelistChannelSubscriptions =
-      whitelistSubscriptionsCheckboxElement.checked;
+    const { checked } = whitelistSubscriptionsCheckboxElement;
+    store.state.whitelistChannelSubscriptions = checked;
+    if (!checked) {
+      // Clear active channel subscriptions to free up storage space.
+      store.state.activeChannelSubscriptions = [];
+    }
   });
   // Proxies
   if (store.state.optimizedProxiesEnabled)
