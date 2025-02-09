@@ -28,7 +28,7 @@ type ListOptions = {
   getPromptPlaceholder(insertMode: InsertMode): string;
   isAddAllowed(text: string): AllowedResult;
   isEditAllowed(text: string): AllowedResult;
-  onEdit?(text: string): void;
+  onChange?(oldText: string | undefined, newText: string): void;
   focusPrompt: boolean;
   hidePromptMarker: boolean;
   insertMode: InsertMode;
@@ -162,12 +162,6 @@ function main() {
       }
       return [true];
     },
-    isEditAllowed(text) {
-      if (!/^[a-z0-9_]+$/i.test(text)) {
-        return [false, `'${text}' is not a valid channel name`];
-      }
-      return [true];
-    },
   });
   whitelistSubscriptionsCheckboxElement.checked =
     store.state.whitelistChannelSubscriptions;
@@ -183,50 +177,21 @@ function main() {
   if (store.state.optimizedProxiesEnabled)
     optimizedProxiesInputElement.checked = true;
   else normalProxiesInputElement.checked = true;
-  const onProxyTypeChange = () => {
+  const onProxyModeChange = () => {
     store.state.optimizedProxiesEnabled = optimizedProxiesInputElement.checked;
     if (isChromium && store.state.chromiumProxyActive) {
       updateProxySettings();
     }
     updateProxyUsage();
   };
-  optimizedProxiesInputElement.addEventListener("change", onProxyTypeChange);
-  normalProxiesInputElement.addEventListener("change", onProxyTypeChange);
-  listInit(optimizedProxiesListElement, "optimizedProxies", {
-    getPromptPlaceholder: insertMode => {
-      if (insertMode == "prepend") return "Enter a proxy URL… (Primary)";
-      return "Enter a proxy URL… (Fallback)";
-    },
-    isAddAllowed: isOptimizedProxyUrlAllowed,
-    isEditAllowed: isOptimizedProxyUrlAllowed,
-    onEdit() {
-      if (isChromium && store.state.chromiumProxyActive) {
-        updateProxySettings();
-      }
-    },
-    hidePromptMarker: true,
-    insertMode: "both",
-  });
-  listInit(normalProxiesListElement, "normalProxies", {
-    getPromptPlaceholder: insertMode => {
-      if (insertMode == "prepend") return "Enter a proxy URL… (Primary)";
-      return "Enter a proxy URL… (Fallback)";
-    },
-    isAddAllowed: isNormalProxyUrlAllowed,
-    isEditAllowed: isNormalProxyUrlAllowed,
-    onEdit() {
-      if (isChromium && store.state.chromiumProxyActive) {
-        updateProxySettings();
-      }
-    },
-    hidePromptMarker: true,
-    insertMode: "both",
-  });
+  optimizedProxiesInputElement.addEventListener("change", onProxyModeChange);
+  normalProxiesInputElement.addEventListener("change", onProxyModeChange);
+  loadProxiesLists();
   otherProtocolsCheckboxElement.checked = store.state.allowOtherProxyProtocols;
   otherProtocolsCheckboxElement.addEventListener("change", () => {
     store.state.allowOtherProxyProtocols =
       otherProtocolsCheckboxElement.checked;
-    location.reload();
+    loadProxiesLists();
   });
   // Ad log
   adLogEnabledCheckboxElement.checked = store.state.adLogEnabled;
@@ -313,6 +278,37 @@ function updateProxyUsage() {
   }
 }
 
+function loadProxiesLists() {
+  listInit(optimizedProxiesListElement, "optimizedProxies", {
+    getPromptPlaceholder: insertMode => {
+      if (insertMode == "prepend") return "Enter a proxy URL… (Primary)";
+      return "Enter a proxy URL… (Fallback)";
+    },
+    isAddAllowed: isOptimizedProxyUrlAllowed,
+    onChange() {
+      if (isChromium && store.state.chromiumProxyActive) {
+        updateProxySettings();
+      }
+    },
+    hidePromptMarker: true,
+    insertMode: "both",
+  });
+  listInit(normalProxiesListElement, "normalProxies", {
+    getPromptPlaceholder: insertMode => {
+      if (insertMode == "prepend") return "Enter a proxy URL… (Primary)";
+      return "Enter a proxy URL… (Fallback)";
+    },
+    isAddAllowed: isNormalProxyUrlAllowed,
+    onChange() {
+      if (isChromium && store.state.chromiumProxyActive) {
+        updateProxySettings();
+      }
+    },
+    hidePromptMarker: true,
+    insertMode: "both",
+  });
+}
+
 function isOptimizedProxyUrlAllowed(url: string): AllowedResult {
   const urlLower = url.toLowerCase();
 
@@ -348,7 +344,10 @@ function isOptimizedProxyUrlAllowed(url: string): AllowedResult {
   if (url.includes("://")) {
     const [protocol] = url.split("://", 1);
     if (!store.state.allowOtherProxyProtocols) {
-      return [false, "Proxy URLs must not contain a protocol (e.g. 'http://')"];
+      return [
+        false,
+        "Proxy URLs are not allowed to contain a protocol (e.g. 'http://')",
+      ];
     } else if (!["http", "https", "socks", "socks4"].includes(protocol)) {
       return [false, `'${protocol}' is not a supported protocol`];
     }
@@ -416,6 +415,7 @@ function listInit(
   storeKey: StoreStringArrayKey,
   options: Partial<ListOptions> = {}
 ) {
+  listElement.innerHTML = ""; // Reset list element.
   const listOptions: ListOptions = { ...DEFAULT_LIST_OPTIONS, ...options };
   for (const text of store.state[storeKey]) {
     _listAppend(listElement, storeKey, text, {
@@ -475,18 +475,19 @@ function _listAppend(
       return console.error(`Item '${text}' not found in '${storeKey}' array`);
 
     const textInput = e.target as HTMLInputElement;
+    const oldText = text;
     const newText = textInput.value.trim();
     // Remove item if text is empty.
     if (newText === "") {
       store.state[storeKey].splice(itemIndex, 1);
       listItem.remove();
-      if (options.onEdit) options.onEdit(newText);
+      if (options.onChange) options.onChange(oldText, newText);
       return;
     }
     // Check if text is valid.
-    const [allowed, error] = options.isEditAllowed(newText);
+    const [allowed, error] = options.isAddAllowed(newText);
     if (!allowed) {
-      alert(error || "You cannot edit this item");
+      alert(error || "You cannot add this item");
       textInput.value = text;
       return;
     }
@@ -495,7 +496,7 @@ function _listAppend(
     textInput.placeholder = options.getItemPlaceholder(newText);
     textInput.value = newText; // Update text in case it was trimmed.
     text = newText; // Update current text variable.
-    if (options.onEdit) options.onEdit(newText);
+    if (options.onChange) options.onChange(oldText, newText);
   });
 
   listItem.append(textInput);
@@ -550,7 +551,7 @@ function _listPrompt(
     if (options.insertMode === "prepend") newArray.unshift(text);
     else newArray.push(text);
     store.state[storeKey] = newArray;
-    if (options.onEdit) options.onEdit(text);
+    if (options.onChange) options.onChange(undefined, text);
 
     listItem.remove();
     _listAppend(listElement, storeKey, text, options);

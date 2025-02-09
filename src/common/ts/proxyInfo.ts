@@ -27,7 +27,7 @@ export function getProxyInfoFromUrl(
   let port: number | undefined = undefined;
   if (lastIndexOfColon === -1) {
     host = hostname;
-    port = !type ? 3128 : DEFAULT_PORTS[type]; // Default port
+    port = type ? DEFAULT_PORTS[type] : 3128; // Default port
   } else {
     host = hostname.substring(0, lastIndexOfColon);
     port = Number(hostname.substring(lastIndexOfColon + 1, hostname.length));

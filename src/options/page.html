@@ -209,24 +209,22 @@
                 id="other-protocols-checkbox"
               />
               <label for="other-protocols-checkbox">
-                Allow the use of other protocols for proxies
+                Allow the use of other protocols
               </label>
+              <span class="tag">For advanced users only</span>
               <br />
               <small>
-                By default, only HTTP proxies are allowed. Enabling this option
-                will allow the use of other protocols like HTTPS, SOCKS4, and
-                SOCKS5.
+                This option allows you to use protocols other than HTTP.
+              </small>
+              <br />
+              <small>
+                Supported protocols are HTTPS (<code>https://</code>), SOCKS4
+                (<code>socks4://</code>), and SOCKS5 (<code>socks://</code>).
               </small>
               <br />
               <small>
                 To provide a protocol, use the format
-                <code>protocol://hostname:port</code>. Available protocols are
-                <code>http</code>, <code>https</code>, <code>socks</code>, and
-                <code>socks4</code>.
-              </small>
-              <br />
-              <small>
-                <b>ONLY ENABLE THIS OPTION IF YOU KNOW WHAT YOU ARE DOING</b>.
+                <code>protocol://hostname:port</code>.
               </small>
             </li>
           </ul>
