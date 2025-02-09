@@ -572,6 +572,7 @@ function _listPrompt(
 exportButtonElement.addEventListener("click", () => {
   const state: Partial<State> = {
     adLogEnabled: store.state.adLogEnabled,
+    allowOtherProxyProtocols: store.state.allowOtherProxyProtocols,
     anonymousMode: store.state.anonymousMode,
     normalProxies: store.state.normalProxies,
     optimizedProxies: store.state.optimizedProxies,
