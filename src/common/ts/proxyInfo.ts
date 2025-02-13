@@ -1,9 +1,24 @@
 import { Address6 } from "ip-address";
-import type { ProxyInfo } from "../../types";
+import type { ProxyInfo, ProxyType } from "../../types";
+
+const DEFAULT_PORTS: Readonly<Record<ProxyType, number>> = Object.freeze({
+  direct: 0,
+  http: 80,
+  https: 443,
+  socks: 1080,
+  socks4: 1080,
+});
 
 export function getProxyInfoFromUrl(
   url: string
-): ProxyInfo & { type: "http"; host: string; port: number } {
+): ProxyInfo & { host: string; port: number } {
+  let type: ProxyType | undefined = undefined;
+  if (url.includes("://")) {
+    const [protocol] = url.split("://", 1);
+    type = protocol as ProxyType;
+    url = url.substring(protocol.length + 3, url.length);
+  }
+
   const lastIndexOfAt = url.lastIndexOf("@");
   const hostname = url.substring(lastIndexOfAt + 1, url.length);
   const lastIndexOfColon = getLastIndexOfColon(hostname);
@@ -12,7 +27,7 @@ export function getProxyInfoFromUrl(
   let port: number | undefined = undefined;
   if (lastIndexOfColon === -1) {
     host = hostname;
-    port = 3128; // Default port
+    port = type ? DEFAULT_PORTS[type] : 3128; // Default port
   } else {
     host = hostname.substring(0, lastIndexOfColon);
     port = Number(hostname.substring(lastIndexOfColon + 1, hostname.length));
@@ -31,7 +46,7 @@ export function getProxyInfoFromUrl(
   }
 
   return {
-    type: "http",
+    type: type ?? "http",
     host,
     port,
     username,

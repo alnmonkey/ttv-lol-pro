@@ -3,9 +3,11 @@ import type { State } from "./types";
 
 export default function getDefaultState() {
   const state: State = {
+    activeChannelSubscriptions: [],
     adLog: [],
     adLogEnabled: true,
     adLogLastSent: 0,
+    allowOtherProxyProtocols: false,
     anonymousMode: true,
     chromiumProxyActive: false,
     dnsResponses: [],
@@ -18,6 +20,7 @@ export default function getDefaultState() {
     passportLevel: 0,
     streamStatuses: {},
     videoWeaverUrlsByChannel: {},
+    whitelistChannelSubscriptions: true,
     whitelistedChannels: [],
   };
   return state;

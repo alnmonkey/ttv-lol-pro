@@ -39,6 +39,7 @@ const pageState: PageState = {
   sendMessageToWorkerScriptsAndWaitForResponse,
 };
 
+const NATIVE_FETCH = window.fetch;
 window.fetch = getFetch(pageState);
 
 const NATIVE_WORKER = window.Worker;
@@ -130,9 +131,9 @@ window.addEventListener("message", event => {
     return;
   }
 
-  if (event.data?.type !== MessageType.PageScriptMessage) return;
+  if (!event.data || event.data.type !== MessageType.PageScriptMessage) return;
 
-  const message = event.data?.message;
+  const { message } = event.data;
   if (!message) return;
 
   switch (message.type) {

@@ -3,9 +3,11 @@ export type KeyOfType<T, V> = keyof {
   [P in keyof T as T[P] extends V ? P : never]: any;
 };
 
+export type ProxyType = "direct" | "http" | "https" | "socks" | "socks4";
+
 // From https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy/ProxyInfo
 export interface ProxyInfo {
-  type: "direct" | "http" | "https" | "socks" | "socks4";
+  type: ProxyType;
   host?: string;
   port?: number;
   username?: string;
@@ -82,6 +84,7 @@ export const enum MessageType {
   UsherResponse = "TLP_UsherResponse",
   NewPlaybackAccessToken = "TLP_NewPlaybackAccessToken",
   NewPlaybackAccessTokenResponse = "TLP_NewPlaybackAccessTokenResponse",
+  ChannelSubStatusChange = "TLP_ChannelSubStatusChange",
   MultipleAdBlockersInUse = "TLP_MultipleAdBlockersInUse",
   ClearStats = "TLP_ClearStats",
 }

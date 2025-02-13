@@ -28,9 +28,11 @@ export function getFetch(pageState: PageState): typeof fetch {
   // Listen for NewPlaybackAccessToken messages from the worker script.
   if (pageState.scope === "page") {
     self.addEventListener("message", async event => {
-      if (event.data?.type !== MessageType.PageScriptMessage) return;
+      if (!event.data || event.data.type !== MessageType.PageScriptMessage) {
+        return;
+      }
 
-      const message = event.data?.message;
+      const { message } = event.data;
       if (!message) return;
 
       switch (message.type) {
@@ -42,14 +44,10 @@ export function getFetch(pageState: PageState): typeof fetch {
               cachedPlaybackTokenRequestHeaders,
               cachedPlaybackTokenRequestBody
             );
-          const message = {
+          pageState.sendMessageToWorkerScripts(pageState.twitchWorkers, {
             type: MessageType.NewPlaybackAccessTokenResponse,
             newPlaybackAccessToken,
-          };
-          pageState.sendMessageToWorkerScripts(
-            pageState.twitchWorkers,
-            message
-          );
+          });
           break;
       }
     });
@@ -58,13 +56,14 @@ export function getFetch(pageState: PageState): typeof fetch {
   // Listen for ClearStats messages from the page script.
   self.addEventListener("message", event => {
     if (
-      event.data?.type !== MessageType.PageScriptMessage &&
-      event.data?.type !== MessageType.WorkerScriptMessage
+      !event.data ||
+      (event.data.type !== MessageType.PageScriptMessage &&
+        event.data.type !== MessageType.WorkerScriptMessage)
     ) {
       return;
     }
 
-    const message = event.data?.message;
+    const { message } = event.data;
     if (!message) return;
 
     switch (message.type) {
@@ -72,9 +71,13 @@ export function getFetch(pageState: PageState): typeof fetch {
         console.log("[TTV LOL PRO] Cleared stats (getFetch).");
         if (!message.channelName) break;
         const channelNameLower = message.channelName.toLowerCase();
-        usherManifests = usherManifests.filter(
-          manifest => manifest.channelName !== channelNameLower
-        );
+        for (let i = 0; i < usherManifests.length; i++) {
+          if (
+            usherManifests[i].channelName?.toLowerCase() === channelNameLower
+          ) {
+            usherManifests[i].deleted = true;
+          }
+        }
         if (cachedPlaybackTokenRequestBody?.includes(channelNameLower)) {
           cachedPlaybackTokenRequestHeaders = null;
           cachedPlaybackTokenRequestBody = null;
@@ -196,7 +199,7 @@ export function getFetch(pageState: PageState): typeof fetch {
           pageState.state?.anonymousMode === true ||
           (shouldFlagRequest && willFailIntegrityCheckIfProxied);
         if (shouldOverrideRequest) {
-          const newRequest = await getDefaultPlaybackAccessTokenRequest(
+          const newRequest = getDefaultPlaybackAccessTokenRequest(
             channelName,
             pageState.state?.anonymousMode === true
           );
@@ -400,6 +403,68 @@ export function getFetch(pageState: PageState): typeof fetch {
 
     //#region Responses
 
+    graphqlRes: if (
+      host != null &&
+      twitchGqlHostRegex.test(host) &&
+      response.status < 400
+    ) {
+      await waitForStore(pageState);
+      if (!pageState.state?.whitelistChannelSubscriptions) break graphqlRes;
+      responseBody ??= await readResponseBody();
+      // Preliminary check to avoid parsing the response body if possible.
+      if (
+        !responseBody.includes('"UserSelfConnection"') ||
+        !responseBody.includes('"subscriptionBenefit"') ||
+        !responseBody.includes('"login"')
+      ) {
+        break graphqlRes;
+      }
+      try {
+        let channelName: string;
+        let isSubscribed: boolean;
+        const body = JSON.parse(responseBody);
+        if (Array.isArray(body)) {
+          const match = body.find(
+            (obj: any) =>
+              obj.data &&
+              obj.data.user &&
+              obj.data.user.login != null &&
+              obj.data.user.self &&
+              "subscriptionBenefit" in obj.data.user.self
+          );
+          if (match == null) break graphqlRes;
+          channelName = match.data.user.login;
+          isSubscribed = match.data.user.self.subscriptionBenefit != null;
+        } else {
+          const isMatch =
+            body.data &&
+            body.data.user &&
+            body.data.user.login != null &&
+            body.data.user.self &&
+            "subscriptionBenefit" in body.data.user.self;
+          if (!isMatch) break graphqlRes;
+          channelName = body.data.user.login;
+          isSubscribed = body.data.user.self.subscriptionBenefit != null;
+        }
+        if (!channelName) break graphqlRes;
+        const isLivestream = !/^\d+$/.test(channelName); // VODs have numeric IDs.
+        if (!isLivestream) break graphqlRes;
+        const wasSubscribed = wasChannelSubscriber(channelName, pageState);
+        const hasSubStatusChanged =
+          (wasSubscribed && !isSubscribed) || (!wasSubscribed && isSubscribed);
+        if (hasSubStatusChanged) {
+          pageState.sendMessageToContentScript({
+            type: MessageType.ChannelSubStatusChange,
+            channelNameLower: channelName.toLowerCase(),
+            wasSubscribed,
+            isSubscribed,
+          });
+        }
+      } catch (error) {
+        console.error("[TTV LOL PRO] Failed to parse GraphQL response:", error);
+      }
+    }
+
     // Twitch Usher responses.
     usherRes: if (
       host != null &&
@@ -407,6 +472,7 @@ export function getFetch(pageState: PageState): typeof fetch {
       response.status < 400
     ) {
       //#region Usher responses.
+      // No need to wait for store here because all Usher requests have already waited for it.
       const isLivestream = !url.includes("/vod/");
       const isFrontpage = url.includes(
         encodeURIComponent('"player_type":"frontpage"')
@@ -416,6 +482,7 @@ export function getFetch(pageState: PageState): typeof fetch {
       if (!isLivestream) break usherRes;
 
       responseBody ??= await readResponseBody();
+      usherManifests = usherManifests.filter(manifest => !manifest.deleted); // Clean up deleted manifests.
       const assignedMap = parseUsherManifest(responseBody);
       if (assignedMap != null) {
         console.debug(
@@ -428,9 +495,12 @@ export function getFetch(pageState: PageState): typeof fetch {
           replacementMap: null,
           consecutiveMidrollResponses: 0,
           consecutiveMidrollCooldown: 0,
+          deleted: false,
         });
       } else {
-        console.debug("[TTV LOL PRO] Received Usher response.");
+        console.error(
+          "[TTV LOL PRO] Received Usher response but failed to parse it."
+        );
       }
       // Send Video Weaver URLs to content script.
       const videoWeaverUrls = [...(assignedMap?.values() ?? [])];
@@ -476,14 +546,11 @@ export function getFetch(pageState: PageState): typeof fetch {
         console.log("[TTV LOL PRO] Midroll ad detected.");
         manifest.consecutiveMidrollResponses += 1;
         manifest.consecutiveMidrollCooldown = 15;
-        const isWhitelisted = isChannelWhitelisted(
-          manifest.channelName,
-          pageState
-        );
+        await waitForStore(pageState);
         const shouldUpdateReplacementMap =
           pageState.state?.optimizedProxiesEnabled === true &&
           manifest.consecutiveMidrollResponses <= 2 && // Avoid infinite loop.
-          !isWhitelisted;
+          !videoWeaverUrlsToNotProxy.has(url);
         if (shouldUpdateReplacementMap) {
           const success = await updateVideoWeaverReplacementMap(
             pageState,
@@ -616,11 +683,25 @@ function isChannelWhitelisted(
   pageState: PageState
 ): boolean {
   if (!channelName) return false;
-  const whitelistedChannelsLower =
-    pageState.state?.whitelistedChannels.map(channel =>
-      channel.toLowerCase()
-    ) ?? [];
-  return whitelistedChannelsLower.includes(channelName.toLowerCase());
+  const channelNameLower = channelName.toLowerCase();
+  return (
+    pageState.state?.whitelistedChannels.some(
+      channel => channel.toLowerCase() === channelNameLower
+    ) ?? false
+  );
+}
+
+function wasChannelSubscriber(
+  channelName: string | null | undefined,
+  pageState: PageState
+): boolean {
+  if (!channelName) return false;
+  const channelNameLower = channelName.toLowerCase();
+  return (
+    pageState.state?.activeChannelSubscriptions.some(
+      channel => channel.toLowerCase() === channelNameLower
+    ) ?? false
+  );
 }
 
 async function flagRequest(
@@ -674,10 +755,6 @@ function cancelRequest(): never {
   throw new Error();
 }
 
-async function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 //#region Video Weaver URL replacement
 
 /**
@@ -686,10 +763,10 @@ async function sleep(ms: number): Promise<void> {
  * @param anonymousMode
  * @returns
  */
-async function getDefaultPlaybackAccessTokenRequest(
+function getDefaultPlaybackAccessTokenRequest(
   channel: string | null = null,
   anonymousMode: boolean = false
-): Promise<Request | null> {
+): Request | null {
   // We can use `location.href` because we're in the page script.
   const channelName = channel ?? findChannelFromTwitchTvUrl(location.href);
   if (!channelName) return null;
@@ -745,7 +822,7 @@ async function fetchReplacementPlaybackAccessToken(
 ): Promise<PlaybackAccessToken | null> {
   // Not using the cached request because we'd need to check if integrity requests are proxied.
   try {
-    let request = await getDefaultPlaybackAccessTokenRequest(
+    let request = getDefaultPlaybackAccessTokenRequest(
       null,
       pageState.state?.anonymousMode === true
     );
