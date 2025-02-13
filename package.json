@@ -49,7 +49,7 @@
   "devDependencies": {
     "@parcel/config-webextension": "^2.13.3",
     "@types/chrome": "^0.0.304",
-    "@types/node": "^22.13.1",
+    "@types/node": "^22.13.2",
     "@types/webextension-polyfill": "^0.12.1",
     "buffer": "^6.0.3",
     "parcel": "^2.13.3",
