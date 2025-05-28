@@ -76,7 +76,7 @@ TTV LOL PRO is a fork of TTV LOL that:
 - lets you whitelist channels,
 - lets you use your own proxies.
 
-TTV LOL PRO does not remove banner ads, nor does it remove ads from VODs. For the best experience, we recommend using [uBlock Origin](https://ublockorigin.com/) alongside TTV LOL PRO.
+TTV LOL PRO does not remove banner ads, nor does it remove ads from VODs. Please use [uBlock Origin](https://ublockorigin.com/) alongside TTV LOL PRO. Without it, we can't guarantee the effectiveness of the extension.
 
 Any questions? Please read the [wiki](https://wiki.ttvlolpro.com/) first.
 
@@ -133,4 +133,4 @@ Contributions are welcome! Please read the [contributing guidelines](CONTRIBUTIN
 
 Extension maintained by [Younes Aassila (@younesaassila)](https://github.com/younesaassila) [ [GitHub Sponsors](https://github.com/sponsors/younesaassila) ]
 
-Proxies maintained by [Marc Gómez (@zGato)](https://github.com/zGato) [ [PayPal](https://paypal.me/gatogameryt) | [GitHub Sponsors](https://github.com/sponsors/zGato) ]
+Proxies maintained by [Marc Gómez (@zGato)](https://github.com/zGato) [ [Ko-fi](https://ko-fi.com/zGato) | [GitHub Sponsors](https://github.com/sponsors/zGato) ]
