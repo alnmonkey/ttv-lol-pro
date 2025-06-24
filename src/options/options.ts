@@ -41,6 +41,15 @@ type ListOptions = {
 const exportButtonElement = $("#export-button") as HTMLButtonElement;
 const importButtonElement = $("#import-button") as HTMLButtonElement;
 const resetButtonElement = $("#reset-button") as HTMLButtonElement;
+// Experience
+const blockAdsInputElement = $("#block-ads") as HTMLInputElement;
+const unlockBestQualityInputElement = $(
+  "#unlock-best-quality"
+) as HTMLInputElement;
+const expertModeContainerElement = $(
+  "#expert-mode-container"
+) as HTMLDivElement;
+const expertModeInputElement = $("#expert-mode") as HTMLInputElement;
 // Passport
 const passportLevelSliderElement = $(
   "#passport-level-slider"
@@ -137,6 +146,40 @@ function main() {
   document
     .querySelectorAll(isChromium ? ".firefox-only" : ".chromium-only")
     .forEach(element => element.remove());
+  // Experience
+  switch (store.state.optionsExperienceType) {
+    case "blockAds":
+      blockAdsInputElement.checked = true;
+      break;
+    case "unlockBestQuality":
+      unlockBestQualityInputElement.checked = true;
+      break;
+    case "expertMode":
+      expertModeInputElement.checked = true;
+      expertModeContainerElement.classList.remove("hidden");
+      break;
+    default:
+      blockAdsInputElement.checked = true;
+      store.state.optionsExperienceType = "blockAds";
+      break;
+  }
+  const loadExperience = () => {
+    // TODO:
+  };
+  blockAdsInputElement.addEventListener("change", () => {
+    store.state.optionsExperienceType = "blockAds";
+    loadExperience();
+  });
+  unlockBestQualityInputElement.addEventListener("change", () => {
+    store.state.optionsExperienceType = "unlockBestQuality";
+    loadExperience();
+  });
+  expertModeInputElement.addEventListener("change", () => {
+    store.state.optionsExperienceType = "expertMode";
+    loadExperience();
+    // TODO: Implement keyboard shortcut to show/hide expert mode.
+  });
+  loadExperience();
   // Passport
   passportLevelSliderElement.value = store.state.passportLevel.toString();
   passportLevelSliderElement.addEventListener("input", () => {
@@ -577,6 +620,7 @@ exportButtonElement.addEventListener("click", () => {
     normalProxies: store.state.normalProxies,
     optimizedProxies: store.state.optimizedProxies,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
+    optionsExperienceType: store.state.optionsExperienceType,
     passportLevel: store.state.passportLevel,
     whitelistChannelSubscriptions: store.state.whitelistChannelSubscriptions,
     whitelistedChannels: store.state.whitelistedChannels,

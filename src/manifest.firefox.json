@@ -48,5 +48,6 @@
     "https://*.ttvnw.net/*",
     "https://*.twitch.tv/*",
     "https://perfprod.com/ttvlolpro/telemetry"
-  ]
+  ],
+  "web_accessible_resources": ["setup/page.html"]
 }

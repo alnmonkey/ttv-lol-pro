@@ -27,6 +27,45 @@
         </div>
       </header>
 
+      <!-- Experience -->
+      <div
+        id="experience-selector"
+        role="group"
+        aria-label="Experience selector"
+      >
+        <div class="separator"></div>
+        <fieldset>
+          <div>
+            <input
+              type="radio"
+              id="block-ads"
+              name="experience"
+              value="block-ads"
+              checked
+            />
+            <label for="block-ads">Block Ads</label>
+          </div>
+          <div>
+            <input
+              type="radio"
+              id="unlock-best-quality"
+              name="experience"
+              value="unlock-best-quality"
+            />
+            <label for="unlock-best-quality">Unlock Best Quality</label>
+          </div>
+          <div id="expert-mode-container">
+            <input
+              type="radio"
+              id="expert-mode"
+              name="experience"
+              value="expert-mode"
+            />
+            <label for="expert-mode">Expert Mode</label>
+          </div>
+        </fieldset>
+      </div>
+
       <main>
         <!-- Passport -->
         <section id="passport" class="section">
@@ -68,23 +107,23 @@
               <table id="passport-level-proxy-usage-table">
                 <tbody>
                   <tr>
-                    <td>passport.twitch.tv</td>
+                    <td>Passport</td>
                     <td id="passport-level-proxy-usage-passport"></td>
                   </tr>
                   <tr>
-                    <td>usher.ttvnw.net</td>
+                    <td>Usher</td>
                     <td id="passport-level-proxy-usage-usher"></td>
                   </tr>
                   <tr>
-                    <td>video-weaver.*.hls.ttvnw.net</td>
+                    <td>Weavers</td>
                     <td id="passport-level-proxy-usage-video-weaver"></td>
                   </tr>
                   <tr>
-                    <td>gql.twitch.tv</td>
+                    <td>GQL</td>
                     <td id="passport-level-proxy-usage-gql"></td>
                   </tr>
                   <tr>
-                    <td>www.twitch.tv</td>
+                    <td>Webpage</td>
                     <td id="passport-level-proxy-usage-www"></td>
                   </tr>
                 </tbody>

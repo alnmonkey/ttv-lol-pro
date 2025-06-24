@@ -17,7 +17,9 @@ export default function getDefaultState() {
       ? ["chromium.api.cdn-perfprod.com:2023"]
       : ["firefox.api.cdn-perfprod.com:2023"],
     optimizedProxiesEnabled: true,
+    optionsExperienceType: "blockAds",
     passportLevel: 0,
+    setupVersion: 0,
     streamStatuses: {},
     videoWeaverUrlsByChannel: {},
     whitelistChannelSubscriptions: true,

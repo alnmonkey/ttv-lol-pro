@@ -51,5 +51,12 @@
     "https://*.live-video.net/*",
     "https://*.ttvnw.net/*",
     "https://*.twitch.tv/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["setup/page.html"],
+      "matches": [],
+      "use_dynamic_url": true
+    }
   ]
 }

@@ -74,7 +74,7 @@ body {
 
 main {
   display: none;
-  padding: 2rem;
+  padding: 0 2rem 2rem 2rem;
 }
 
 header {
@@ -82,9 +82,8 @@ header {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 1.5rem;
+  padding: 1.5rem 1.5rem 0 1.5rem;
   gap: 1rem;
-  border-bottom: 1px solid var(--input-border-color);
   background-color: var(--wrapper-background-color);
 }
 header > .title-container {
@@ -375,6 +374,62 @@ input[type="radio"]:not(:checked) ~ .store-list {
   margin-top: 0.75rem;
 }
 
+#experience-selector {
+  position: relative;
+}
+#experience-selector > .separator {
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: var(--input-border-color);
+}
+#experience-selector > fieldset {
+  display: flex;
+  z-index: 1;
+  position: relative;
+  top: 0;
+  left: 50%;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  margin: 2rem 0;
+  padding: 0;
+  overflow: hidden;
+  transform: translateX(-50%);
+  border: 1px solid var(--input-border-color);
+  border-radius: 99999px;
+  background-color: var(--input-background-color);
+}
+#experience-selector > fieldset > #expert-mode-container {
+  display: none;
+}
+#experience-selector > fieldset > div {
+  overflow: hidden;
+  border-radius: 99999px;
+  text-align: center;
+}
+#experience-selector > fieldset > div > input {
+  display: none;
+}
+#experience-selector > fieldset > div > input + label {
+  display: block;
+  margin: 0;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: box-shadow 100ms ease-in-out;
+}
+#experience-selector > fieldset > div > input + label:hover {
+  box-shadow: inset 0 0 99999px 99999px rgba(255, 255, 255, 0.075);
+}
+#experience-selector > fieldset > div > input:checked + label {
+  background-color: var(--brand-color);
+  color: #ffffff;
+}
+
 @media screen and (max-width: 800px) {
   header {
     flex-direction: column;
@@ -383,7 +438,7 @@ input[type="radio"]:not(:checked) ~ .store-list {
 
 @media screen and (max-width: 600px) {
   main {
-    padding: 1.25rem;
+    padding: 0 1.25rem 1.25rem 1.25rem;
   }
 
   header > #buttons-container {
@@ -398,5 +453,9 @@ input[type="radio"]:not(:checked) ~ .store-list {
 
   footer > nav > ul {
     gap: 0.5rem;
+  }
+
+  #experience-selector > fieldset > div > input + label {
+    font-size: 0.8rem;
   }
 }

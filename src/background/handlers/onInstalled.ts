@@ -1,14 +1,13 @@
-import { Runtime } from "webextension-polyfill";
+import setupPageURL from "url:../../setup/page.html";
+import browser, { Runtime } from "webextension-polyfill";
 import isChromium from "../../common/ts/isChromium";
 import store from "../../store";
 
-export default function onInstalledStoreCleanup(
+export default function onInstalled(
   details: Runtime.OnInstalledDetailsType
 ): void {
   if (store.readyState !== "complete")
-    return store.addEventListener("load", () =>
-      onInstalledStoreCleanup(details)
-    );
+    return store.addEventListener("load", () => onInstalled(details));
 
   if (details.reason === "update") {
     // Remove old Chromium normal proxy.
@@ -36,6 +35,16 @@ export default function onInstalledStoreCleanup(
 
         store.state.optimizedProxies.push(newChromiumProxy);
       }
+    }
+  }
+
+  if (details.reason === "install" || details.reason === "update") {
+    const CURRENT_SETUP_VERSION = 1; // Bumping this version will trigger the setup page to open for everyone on update.
+    if (store.state.setupVersion < CURRENT_SETUP_VERSION) {
+      store.state.setupVersion = CURRENT_SETUP_VERSION;
+      browser.tabs.create({
+        url: setupPageURL,
+      });
     }
   }
 }

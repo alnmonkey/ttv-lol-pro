@@ -112,3 +112,8 @@ export type ProxyRequestParams =
       passportLevel: number;
       isFlagged?: boolean;
     };
+
+export type OptionsExperienceType =
+  | "blockAds"
+  | "unlockBestQuality"
+  | "expertMode";

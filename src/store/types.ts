@@ -1,5 +1,10 @@
 import type { Tabs } from "webextension-polyfill";
-import type { AdLogEntry, DnsResponse, StreamStatus } from "../types";
+import type {
+  AdLogEntry,
+  DnsResponse,
+  OptionsExperienceType,
+  StreamStatus,
+} from "../types";
 
 export type EventType = "load" | "change";
 export type ReadyState = "loading" | "complete";
@@ -18,7 +23,9 @@ export interface State {
   openedTwitchTabs: Tabs.Tab[];
   optimizedProxies: string[];
   optimizedProxiesEnabled: boolean;
+  optionsExperienceType: OptionsExperienceType;
   passportLevel: number;
+  setupVersion: number;
   streamStatuses: Record<string, StreamStatus>;
   videoWeaverUrlsByChannel: Record<string, string[]>;
   whitelistChannelSubscriptions: boolean;
