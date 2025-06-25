@@ -38,8 +38,17 @@ export default function onInstalled(
     }
   }
 
-  if (details.reason === "install" || details.reason === "update") {
-    const CURRENT_SETUP_VERSION = 1; // Bumping this version will trigger the setup page to open for everyone on update.
+  const chromiumProxy = "chromium.api.cdn-perfprod.com:2023";
+  const firefoxProxy = "firefox.api.cdn-perfprod.com:2023";
+  const mayWantBestQualityExperience =
+    store.state.optimizedProxies.length === 1 &&
+    [chromiumProxy, firefoxProxy].includes(store.state.optimizedProxies[0]) &&
+    store.state.normalProxies.length === 0;
+  if (
+    details.reason === "install" ||
+    (details.reason === "update" && mayWantBestQualityExperience)
+  ) {
+    const CURRENT_SETUP_VERSION = 1;
     if (store.state.setupVersion < CURRENT_SETUP_VERSION) {
       store.state.setupVersion = CURRENT_SETUP_VERSION;
       browser.tabs.create({
