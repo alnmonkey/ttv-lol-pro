@@ -54,7 +54,7 @@
             />
             <label for="unlock-best-quality">Unlock Best Quality</label>
           </div>
-          <div id="expert-mode-container">
+          <div id="expert-mode-container" class="hidden">
             <input
               type="radio"
               id="expert-mode"
@@ -69,17 +69,18 @@
       <main>
         <!-- Passport -->
         <section id="passport" class="section">
-          <h2>Passport</h2>
-          <small>
+          <h2 class="block-ads">Passport</h2>
+          <h2 class="unlock-best-quality">Passport Card</h2>
+          <small class="block-ads">
             Controls which types of requests are proxied. Increase the slider
             <b>only if you are seeing ads</b> with the current setting.
           </small>
-          <br />
-          <small>
+          <br class="block-ads" />
+          <small class="block-ads">
             If you are seeing "Commercial break in progress" ads, increasing the
             slider <b>will not help</b>.
           </small>
-          <br />
+          <br class="block-ads" />
           <div id="passport-level-container">
             <img
               src="../common/images/passport.png"
@@ -95,14 +96,24 @@
                 max="2"
                 step="1"
                 list="passport-level-slider-datalist"
+                class="block-ads"
               />
-              <datalist id="passport-level-slider-datalist">
+              <datalist id="passport-level-slider-datalist" class="block-ads">
                 <option value="0" label="Ordinary"></option>
                 <option value="1" label="Official"></option>
                 <option value="2" label="Diplomatic"></option>
               </datalist>
+              <small class="unlock-best-quality">
+                Controls which types of requests are proxied.
+              </small>
+              <br class="unlock-best-quality" />
+              <small class="unlock-best-quality">
+                The "Unlock Best Quality" experience has configured your
+                passport to unlock the highest stream quality when unavailable
+                in your region.
+              </small>
             </div>
-            <details id="passport-level-proxy-usage">
+            <details id="passport-level-proxy-usage" class="block-ads">
               <summary id="passport-level-proxy-usage-summary"></summary>
               <table id="passport-level-proxy-usage-table">
                 <tbody>

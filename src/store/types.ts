@@ -3,6 +3,7 @@ import type {
   AdLogEntry,
   DnsResponse,
   OptionsExperienceType,
+  PassportConfig,
   StreamStatus,
 } from "../types";
 
@@ -18,6 +19,8 @@ export interface State {
   allowOtherProxyProtocols: boolean;
   anonymousMode: boolean;
   chromiumProxyActive: boolean;
+  customPassport: PassportConfig;
+  customPassportEnabled: boolean;
   dnsResponses: DnsResponse[];
   normalProxies: string[];
   openedTwitchTabs: Tabs.Tab[];

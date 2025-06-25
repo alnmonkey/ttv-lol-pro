@@ -7,6 +7,7 @@ import findChannelFromTwitchTvUrl from "../common/ts/findChannelFromTwitchTvUrl"
 import isChannelWhitelisted from "../common/ts/isChannelWhitelisted";
 import isChromium from "../common/ts/isChromium";
 import isRequestTypeProxied from "../common/ts/isRequestTypeProxied";
+import loadExperience from "../common/ts/loadExperience";
 import { getProxyInfoFromUrl } from "../common/ts/proxyInfo";
 import {
   clearProxySettings,
@@ -16,7 +17,7 @@ import sendAdLog from "../common/ts/sendAdLog";
 import store from "../store";
 import getDefaultState from "../store/getDefaultState";
 import type { State } from "../store/types";
-import { KeyOfType, ProxyRequestType } from "../types";
+import { KeyOfType, OptionsExperienceType, ProxyRequestType } from "../types";
 
 //#region Types
 type AllowedResult = [boolean, string?];
@@ -163,23 +164,61 @@ function main() {
       store.state.optionsExperienceType = "blockAds";
       break;
   }
-  const loadExperience = () => {
-    // TODO:
+  const updateExperienceUI = (experience: OptionsExperienceType) => {
+    switch (experience) {
+      case "blockAds":
+        document.querySelectorAll(".unlock-best-quality").forEach(el => {
+          el.classList.add("hidden");
+        });
+        document.querySelectorAll(".expert-mode").forEach(el => {
+          el.classList.add("hidden");
+        });
+        document.querySelectorAll(".block-ads").forEach(el => {
+          el.classList.remove("hidden");
+        });
+        break;
+      case "unlockBestQuality":
+        document.querySelectorAll(".block-ads").forEach(el => {
+          el.classList.add("hidden");
+        });
+        document.querySelectorAll(".expert-mode").forEach(el => {
+          el.classList.add("hidden");
+        });
+        document.querySelectorAll(".unlock-best-quality").forEach(el => {
+          el.classList.remove("hidden");
+        });
+        break;
+      case "expertMode":
+        document.querySelectorAll(".block-ads").forEach(el => {
+          el.classList.add("hidden");
+        });
+        document.querySelectorAll(".unlock-best-quality").forEach(el => {
+          el.classList.add("hidden");
+        });
+        document.querySelectorAll(".expert-mode").forEach(el => {
+          el.classList.remove("hidden");
+        });
+        break;
+    }
   };
   blockAdsInputElement.addEventListener("change", () => {
     store.state.optionsExperienceType = "blockAds";
-    loadExperience();
+    loadExperience(store.state.optionsExperienceType);
+    updateExperienceUI(store.state.optionsExperienceType);
   });
   unlockBestQualityInputElement.addEventListener("change", () => {
     store.state.optionsExperienceType = "unlockBestQuality";
-    loadExperience();
+    loadExperience(store.state.optionsExperienceType);
+    updateExperienceUI(store.state.optionsExperienceType);
   });
   expertModeInputElement.addEventListener("change", () => {
     store.state.optionsExperienceType = "expertMode";
-    loadExperience();
+    loadExperience(store.state.optionsExperienceType);
+    updateExperienceUI(store.state.optionsExperienceType);
     // TODO: Implement keyboard shortcut to show/hide expert mode.
   });
-  loadExperience();
+  loadExperience(store.state.optionsExperienceType);
+  updateExperienceUI(store.state.optionsExperienceType);
   // Passport
   passportLevelSliderElement.value = store.state.passportLevel.toString();
   passportLevelSliderElement.addEventListener("input", () => {
@@ -254,6 +293,9 @@ function updateProxyUsage() {
     isChromium: isChromium,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
     passportLevel: store.state.passportLevel,
+    customPassport: store.state.customPassportEnabled
+      ? store.state.customPassport
+      : null,
     fullModeEnabled: false,
     isFlagged: false,
   };
@@ -292,7 +334,11 @@ function updateProxyUsage() {
     passportLevelProxyUsagePassportElement.textContent = "None";
   }
   // Usher
-  passportLevelProxyUsageUsherElement.textContent = "All";
+  if (isRequestTypeProxied(ProxyRequestType.Usher, requestParams)) {
+    passportLevelProxyUsageUsherElement.textContent = "All";
+  } else {
+    passportLevelProxyUsageUsherElement.textContent = "None";
+  }
   // Video Weaver
   if (isRequestTypeProxied(ProxyRequestType.VideoWeaver, requestParams)) {
     passportLevelProxyUsageVideoWeaverElement.textContent = "All";
@@ -617,6 +663,8 @@ exportButtonElement.addEventListener("click", () => {
     adLogEnabled: store.state.adLogEnabled,
     allowOtherProxyProtocols: store.state.allowOtherProxyProtocols,
     anonymousMode: store.state.anonymousMode,
+    customPassport: store.state.customPassport,
+    customPassportEnabled: store.state.customPassportEnabled,
     normalProxies: store.state.normalProxies,
     optimizedProxies: store.state.optimizedProxies,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,

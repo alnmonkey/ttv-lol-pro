@@ -6,9 +6,9 @@ export default function isRequestTypeProxied(
 ): boolean {
   if (type === ProxyRequestType.Passport) {
     if (params.isChromium && !params.optimizedProxiesEnabled) {
-      return params.passportLevel >= 0;
+      return params.customPassport?.passport ?? params.passportLevel >= 0;
     } else {
-      return params.passportLevel >= 1;
+      return params.customPassport?.passport ?? params.passportLevel >= 1;
     }
   }
 
@@ -21,7 +21,7 @@ export default function isRequestTypeProxied(
         return false;
       }
     }
-    return params.passportLevel >= 0;
+    return params.customPassport?.usher ?? params.passportLevel >= 0;
   }
 
   if (type === ProxyRequestType.VideoWeaver) {
@@ -33,22 +33,26 @@ export default function isRequestTypeProxied(
         return false;
       }
     }
-    return true;
+    return params.customPassport?.videoWeaver ?? true;
   }
 
   if (type === ProxyRequestType.GraphQLToken) {
     if (params.isChromium) {
-      return params.passportLevel >= 1;
+      return params.customPassport?.graphQLToken ?? params.passportLevel >= 1;
     } else {
-      return params.passportLevel >= 0;
+      return params.customPassport?.graphQLToken ?? params.passportLevel >= 0;
     }
   }
 
   if (type === ProxyRequestType.GraphQLIntegrity) {
     if (params.optimizedProxiesEnabled) {
-      return params.passportLevel >= 2;
+      return (
+        params.customPassport?.graphQLIntegrity ?? params.passportLevel >= 2
+      );
     } else {
-      return params.passportLevel >= 1;
+      return (
+        params.customPassport?.graphQLIntegrity ?? params.passportLevel >= 1
+      );
     }
   }
 
@@ -58,14 +62,14 @@ export default function isRequestTypeProxied(
     if (
       params.isChromium &&
       !params.optimizedProxiesEnabled &&
-      params.passportLevel >= 1
+      (params.customPassport?.graphQL ?? params.passportLevel >= 1)
     ) {
       return true;
     }
     if (
       !params.isChromium &&
       !params.optimizedProxiesEnabled &&
-      params.passportLevel >= 2
+      (params.customPassport?.graphQL ?? params.passportLevel >= 2)
     ) {
       return true;
     }
@@ -78,14 +82,14 @@ export default function isRequestTypeProxied(
       return false;
     }
     if (params.isChromium) {
-      return params.passportLevel >= 1;
+      return params.customPassport?.graphQL ?? params.passportLevel >= 1;
     } else {
-      return params.passportLevel >= 0;
+      return params.customPassport?.graphQL ?? params.passportLevel >= 0;
     }
   }
 
   if (type === ProxyRequestType.TwitchWebpage) {
-    return params.passportLevel >= 2;
+    return params.customPassport?.twitchWebpage ?? params.passportLevel >= 2;
   }
 
   return false;

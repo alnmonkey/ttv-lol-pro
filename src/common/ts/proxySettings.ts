@@ -31,6 +31,9 @@ export function updateProxySettings(requestFilter?: ProxyRequestType[]) {
     isChromium: true,
     optimizedProxiesEnabled: optimizedProxiesEnabled,
     passportLevel: passportLevel,
+    customPassport: store.state.customPassportEnabled
+      ? store.state.customPassport
+      : null,
     fullModeEnabled:
       !optimizedProxiesEnabled ||
       (requestFilter != null && requestFilter.includes(requestType)),

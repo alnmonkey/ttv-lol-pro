@@ -187,6 +187,10 @@ hr {
   border-top: 1px solid var(--input-border-color);
 }
 
+.hidden {
+  display: none !important;
+}
+
 li.hide-marker::marker {
   display: none;
   content: "";
@@ -211,9 +215,6 @@ li.hide-marker::marker {
   border: 1px solid var(--input-border-color);
   border-radius: 99999px;
   background-color: var(--input-background-color);
-}
-#experience-selector > fieldset > #expert-mode-container {
-  display: none;
 }
 #experience-selector > fieldset > div {
   overflow: hidden;

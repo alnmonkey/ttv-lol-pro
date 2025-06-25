@@ -1,5 +1,6 @@
 import browser from "webextension-polyfill";
 import $ from "../common/ts/$";
+import loadExperience from "../common/ts/loadExperience";
 import store from "../store";
 
 const setupFormElement = $("#setup-form") as HTMLFormElement;
@@ -27,20 +28,21 @@ function main() {
       expertModeInputElement.checked = true;
       expertModeContainerElement.classList.remove("hidden");
       break;
-    default:
-      blockAdsInputElement.checked = true;
-      store.state.optionsExperienceType = "blockAds";
-      break;
   }
   blockAdsInputElement.addEventListener("change", () => {
     store.state.optionsExperienceType = "blockAds";
+    loadExperience(store.state.optionsExperienceType);
   });
   unlockBestQualityInputElement.addEventListener("change", () => {
     store.state.optionsExperienceType = "unlockBestQuality";
+    loadExperience(store.state.optionsExperienceType);
   });
   expertModeInputElement.addEventListener("change", () => {
     store.state.optionsExperienceType = "expertMode";
+    loadExperience(store.state.optionsExperienceType);
+    // TODO: Implement keyboard shortcut to show/hide expert mode.
   });
+  loadExperience(store.state.optionsExperienceType);
 }
 
 setupFormElement.addEventListener("submit", e => {

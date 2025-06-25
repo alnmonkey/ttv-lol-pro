@@ -39,6 +39,9 @@ export default async function onResponseStarted(
     isChromium: isChromium,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
     passportLevel: store.state.passportLevel,
+    customPassport: store.state.customPassportEnabled
+      ? store.state.customPassport
+      : null,
   };
   const proxiedPassportRequest = isRequestTypeProxied(
     ProxyRequestType.Passport,
