@@ -115,7 +115,7 @@ export type ProxyRequestParams =
       isFlagged?: boolean;
     };
 
-export type OptionsExperienceType =
+export type UserExperienceMode =
   | "blockAds"
   | "unlockBestQuality"
   | "expertMode";

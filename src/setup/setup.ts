@@ -2,54 +2,55 @@ import browser from "webextension-polyfill";
 import $ from "../common/ts/$";
 import loadExperience from "../common/ts/loadExperience";
 import store from "../store";
+import type { UserExperienceMode } from "../types";
 
 const setupFormElement = $("#setup-form") as HTMLFormElement;
-const blockAdsInputElement = $("#block-ads") as HTMLInputElement;
-const unlockBestQualityInputElement = $(
-  "#unlock-best-quality"
-) as HTMLInputElement;
-const expertModeContainerElement = $(
-  "#expert-mode-container"
-) as HTMLDivElement;
-const expertModeInputElement = $("#expert-mode") as HTMLInputElement;
+const expertModeSegmentElement = $("#expert-mode-segment") as HTMLDivElement;
 
-if (store.readyState === "complete") main();
-else store.addEventListener("load", main);
+if (store.readyState === "complete") init();
+else store.addEventListener("load", init);
 
-function main() {
-  switch (store.state.optionsExperienceType) {
-    case "blockAds":
-      blockAdsInputElement.checked = true;
-      break;
-    case "unlockBestQuality":
-      unlockBestQualityInputElement.checked = true;
-      break;
-    case "expertMode":
-      expertModeInputElement.checked = true;
-      expertModeContainerElement.classList.remove("hidden");
-      break;
+function init() {
+  const experienceRadioNodeList = setupFormElement.elements.namedItem(
+    "experience"
+  ) as RadioNodeList | null;
+  if (!experienceRadioNodeList) {
+    const message = "Experience radio buttons not found in setup form.";
+    console.error(message);
+    alert(message);
+    return;
   }
-  blockAdsInputElement.addEventListener("change", () => {
-    store.state.optionsExperienceType = "blockAds";
-    loadExperience(store.state.optionsExperienceType);
-  });
-  unlockBestQualityInputElement.addEventListener("change", () => {
-    store.state.optionsExperienceType = "unlockBestQuality";
-    loadExperience(store.state.optionsExperienceType);
-  });
-  expertModeInputElement.addEventListener("change", () => {
-    store.state.optionsExperienceType = "expertMode";
-    loadExperience(store.state.optionsExperienceType);
-    // TODO: Implement keyboard shortcut to show/hide expert mode.
-  });
-  loadExperience(store.state.optionsExperienceType);
+  experienceRadioNodeList.value = store.state.userExperienceMode;
+  if (store.state.userExperienceMode === "expertMode") {
+    expertModeSegmentElement.removeAttribute("hidden");
+  }
 }
 
-setupFormElement.addEventListener("submit", e => {
-  e.preventDefault();
-  browser.tabs.query({ active: true, currentWindow: true }).then(tabs => {
+setupFormElement.addEventListener("change", event => {
+  if (!(event.target instanceof HTMLInputElement)) return;
+  if (event.target.name !== "experience") return;
+  const experienceMode = event.target.value as UserExperienceMode;
+  store.state.userExperienceMode = experienceMode;
+  if (experienceMode === "expertMode") {
+    expertModeSegmentElement.removeAttribute("hidden");
+  }
+  loadExperience(experienceMode);
+});
+
+setupFormElement.addEventListener("submit", async event => {
+  event.preventDefault();
+  // Close the current tab.
+  try {
+    const tabs = await browser.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
     if (tabs.length > 0) {
       browser.tabs.remove(tabs[0].id!);
     }
-  });
+  } catch (error) {
+    const message = `Failed to close the current tab: ${error}`;
+    console.error(message);
+    alert(message);
+  }
 });

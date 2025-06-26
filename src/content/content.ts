@@ -156,7 +156,11 @@ function onPageMessage(event: MessageEvent) {
     const currentChannelNameLower = findChannelFromTwitchTvUrl(
       location.href
     )?.toLowerCase();
-    if (store.state.whitelistChannelSubscriptions && channelNameLower != null) {
+    if (
+      store.state.whitelistChannelSubscriptions &&
+      store.state.userExperienceMode !== "unlockBestQuality" && // Feature not available in this experience.
+      channelNameLower != null
+    ) {
       if (!wasSubscribed && isSubscribed) {
         store.state.activeChannelSubscriptions.push(channelNameLower);
         // Add to whitelist.

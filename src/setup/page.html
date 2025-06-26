@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div class="wrapper">
+    <div class="container">
       <header>
         <img
           src="../common/images/brand/icon.png"
@@ -37,45 +37,37 @@
           </li>
         </ul>
 
-        <!-- Experience -->
-        <div
-          id="experience-selector"
-          role="group"
-          aria-label="Experience selector"
-        >
-          <fieldset>
-            <div>
-              <input
-                type="radio"
-                id="block-ads"
-                name="experience"
-                value="block-ads"
-                checked
-              />
-              <label for="block-ads">Block Ads</label>
-            </div>
-            <div>
-              <input
-                type="radio"
-                id="unlock-best-quality"
-                name="experience"
-                value="unlock-best-quality"
-              />
-              <label for="unlock-best-quality">Unlock Best Quality</label>
-            </div>
-            <div id="expert-mode-container" class="hidden">
-              <input
-                type="radio"
-                id="expert-mode"
-                name="experience"
-                value="expert-mode"
-              />
-              <label for="expert-mode">Expert Mode</label>
-            </div>
-          </fieldset>
-        </div>
+        <fieldset class="segmented-control" aria-label="Select Experience">
+          <div class="segment">
+            <input
+              type="radio"
+              id="block-ads"
+              name="experience"
+              value="blockAds"
+            />
+            <label for="block-ads">Block Ads</label>
+          </div>
+          <div class="segment">
+            <input
+              type="radio"
+              id="unlock-best-quality"
+              name="experience"
+              value="unlockBestQuality"
+            />
+            <label for="unlock-best-quality">Unlock Best Quality</label>
+          </div>
+          <div id="expert-mode-segment" class="segment" hidden>
+            <input
+              type="radio"
+              id="expert-mode"
+              name="experience"
+              value="expertMode"
+            />
+            <label for="expert-mode">Expert Mode</label>
+          </div>
+        </fieldset>
 
-        <button id="done-button" class="btn-primary">Done</button>
+        <button id="done-button" class="button-primary">Done</button>
       </form>
 
       <!-- FIXME: This footer makes the build fail for Chromium. -->

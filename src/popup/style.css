@@ -1,8 +1,3 @@
-@font-face {
-  src: url("../common/fonts/Inter-VariableFont_slnt\,wght.ttf");
-  font-family: "Inter";
-}
-
 :root {
   --popup-width: 310px;
   --font-family: "Inter", "Roobert", "Helvetica Neue", Helvetica, Arial,

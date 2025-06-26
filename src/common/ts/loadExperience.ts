@@ -1,7 +1,9 @@
 import store from "../../store";
-import { OptionsExperienceType } from "../../types";
+import { UserExperienceMode } from "../../types";
+import isChromium from "./isChromium";
+import { updateProxySettings } from "./proxySettings";
 
-export default function loadExperience(experience: OptionsExperienceType) {
+export default function loadExperience(experience: UserExperienceMode) {
   switch (experience) {
     case "blockAds":
       store.state.customPassportEnabled = false;
@@ -21,5 +23,8 @@ export default function loadExperience(experience: OptionsExperienceType) {
     case "expertMode":
       store.state.customPassportEnabled = true;
       break;
+  }
+  if (isChromium && store.state.chromiumProxyActive) {
+    updateProxySettings();
   }
 }

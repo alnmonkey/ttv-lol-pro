@@ -425,7 +425,16 @@ export function getFetch(pageState: PageState): typeof fetch {
       response.status < 400
     ) {
       await waitForStore(pageState);
-      if (!pageState.state?.whitelistChannelSubscriptions) break graphqlRes;
+      if (
+        !(
+          (
+            pageState.state?.whitelistChannelSubscriptions &&
+            pageState.state?.userExperienceMode !== "unlockBestQuality"
+          ) // Feature not available in this experience.
+        )
+      ) {
+        break graphqlRes;
+      }
       responseBody ??= await readResponseBody();
       // Preliminary check to avoid parsing the response body if possible.
       if (
