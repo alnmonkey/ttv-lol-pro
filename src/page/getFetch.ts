@@ -285,7 +285,6 @@ export function getFetch(pageState: PageState): typeof fetch {
         break usherReq;
       }
 
-      console.log("customPassport", pageState.state?.customPassport);
       const shouldFlagRequest = isRequestTypeProxied(ProxyRequestType.Usher, {
         isChromium: pageState.isChromium,
         optimizedProxiesEnabled:

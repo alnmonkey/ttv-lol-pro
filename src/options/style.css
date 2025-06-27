@@ -56,11 +56,6 @@ body > .container:first-child {
   box-shadow: 0 0 32px var(--container-box-shadow-color);
 }
 
-main {
-  display: none;
-  padding: 0 2rem 2rem 2rem;
-}
-
 header {
   display: flex;
   flex-direction: row;
@@ -90,6 +85,11 @@ header > #buttons-container {
   flex-direction: row;
   align-items: center;
   gap: 0.5rem;
+}
+
+main {
+  display: none;
+  padding: 0 2rem 2rem 2rem;
 }
 
 footer {
@@ -140,6 +140,7 @@ input[type="text"]::placeholder {
 }
 
 input[type="button"],
+input[type="submit"],
 button {
   margin: 0.125rem 0;
   padding: 0.5rem 1rem;
@@ -151,10 +152,10 @@ button {
   transition: background-color 100ms ease-in-out;
 }
 input[type="button"]:hover,
+input[type="submit"]:hover,
 button:hover {
   background-color: var(--button-background-color-hover);
 }
-
 .button-primary {
   background-color: var(--brand-color);
   color: #ffffff;
@@ -168,7 +169,6 @@ input[type="checkbox"]:disabled + label {
 }
 
 fieldset {
-  margin-top: 1rem;
   border: 0;
 }
 
@@ -232,6 +232,59 @@ input[type="radio"]:not(:checked) ~ .store-list {
   position: absolute;
   left: -1.6rem;
   margin-top: 0.3rem;
+}
+
+.experience-container {
+  position: relative;
+}
+.experience-container .separator {
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: var(--input-border-color);
+}
+.experience-container .segmented-control {
+  display: flex;
+  z-index: 1;
+  position: relative;
+  top: 0;
+  left: 50%;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  margin: 2rem 0;
+  padding: 0;
+  overflow: hidden;
+  transform: translateX(-50%);
+  border: 1px solid var(--input-border-color);
+  border-radius: 100vmax;
+  background-color: var(--input-background-color);
+}
+.experience-container .segmented-control .segment {
+  overflow: hidden;
+  border-radius: 100vmax;
+  text-align: center;
+}
+.experience-container .segmented-control .segment input {
+  display: none;
+}
+.experience-container .segmented-control .segment label {
+  display: block;
+  margin: 0;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: box-shadow 100ms ease-in-out;
+}
+.experience-container .segmented-control .segment input:checked + label {
+  background-color: var(--brand-color);
+  color: #ffffff;
+}
+.experience-container .segmented-control .segment label:hover {
+  box-shadow: inset 0 0 100vmax 100vmax rgba(255, 255, 255, 0.075);
 }
 
 #passport-level-container {
@@ -365,57 +418,8 @@ input[type="radio"]:not(:checked) ~ .store-list {
   margin-top: 0.75rem;
 }
 
-.experience-container {
-  position: relative;
-}
-.experience-container .separator {
-  display: block;
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 100%;
-  height: 1px;
-  background-color: var(--input-border-color);
-}
-.experience-container .segmented-control {
-  display: flex;
-  z-index: 1;
-  position: relative;
-  top: 0;
-  left: 50%;
-  align-items: center;
-  justify-content: center;
-  width: max-content;
-  margin: 2rem 0;
-  padding: 0;
-  overflow: hidden;
-  transform: translateX(-50%);
-  border: 1px solid var(--input-border-color);
-  border-radius: 100vmax;
-  background-color: var(--input-background-color);
-}
-.experience-container .segmented-control .segment {
-  overflow: hidden;
-  border-radius: 100vmax;
-  text-align: center;
-}
-.experience-container .segmented-control .segment input {
-  display: none;
-}
-.experience-container .segmented-control .segment label {
-  display: block;
-  margin: 0;
-  padding: 0.75rem 1.5rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: box-shadow 100ms ease-in-out;
-}
-.experience-container .segmented-control .segment input:checked + label {
-  background-color: var(--brand-color);
-  color: #ffffff;
-}
-.experience-container .segmented-control .segment label:hover {
-  box-shadow: inset 0 0 100vmax 100vmax rgba(255, 255, 255, 0.075);
+.proxy-mode-radio-buttons {
+  margin-top: 1rem;
 }
 
 @media screen and (max-width: 800px) {
