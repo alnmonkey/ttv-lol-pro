@@ -2,6 +2,7 @@ import Bowser from "bowser";
 import browser from "webextension-polyfill";
 import onStartupStoreCleanup from "../background/handlers/onStartupStoreCleanup";
 import $ from "../common/ts/$";
+import $$ from "../common/ts/$$";
 import { readFile, saveFile } from "../common/ts/file";
 import findChannelFromTwitchTvUrl from "../common/ts/findChannelFromTwitchTvUrl";
 import isChannelWhitelisted from "../common/ts/isChannelWhitelisted";
@@ -17,7 +18,12 @@ import sendAdLog from "../common/ts/sendAdLog";
 import store from "../store";
 import getDefaultState from "../store/getDefaultState";
 import type { State } from "../store/types";
-import { KeyOfType, ProxyRequestType, UserExperienceMode } from "../types";
+import {
+  KeyOfType,
+  PassportConfig,
+  ProxyRequestType,
+  UserExperienceMode,
+} from "../types";
 
 //#region Types
 type AllowedResult = [boolean, string?];
@@ -43,12 +49,7 @@ const exportButtonElement = $("#export-button") as HTMLButtonElement;
 const importButtonElement = $("#import-button") as HTMLButtonElement;
 const resetButtonElement = $("#reset-button") as HTMLButtonElement;
 // Experience
-const blockAdsInputElement = $("#block-ads") as HTMLInputElement;
-const unlockBestQualityInputElement = $(
-  "#unlock-best-quality"
-) as HTMLInputElement;
 const expertModeSegmentElement = $("#expert-mode-segment") as HTMLDivElement;
-const expertModeInputElement = $("#expert-mode") as HTMLInputElement;
 // Passport
 const passportLevelSliderElement = $(
   "#passport-level-slider"
@@ -146,72 +147,47 @@ function main() {
     .querySelectorAll(isChromium ? ".firefox-only" : ".chromium-only")
     .forEach(element => element.remove());
   // Experience
-  switch (store.state.userExperienceMode) {
-    case "blockAds":
-      blockAdsInputElement.checked = true;
-      break;
-    case "unlockBestQuality":
-      unlockBestQualityInputElement.checked = true;
-      break;
-    case "expertMode":
-      expertModeInputElement.checked = true;
-      expertModeSegmentElement.removeAttribute("hidden");
-      break;
-  }
+  const experienceInputElements = $$(
+    "input[type='radio'][name='experience']"
+  ) as NodeListOf<HTMLInputElement>;
+  experienceInputElements.forEach(inputElement => {
+    if (inputElement.value === store.state.userExperienceMode) {
+      inputElement.checked = true;
+      if (store.state.userExperienceMode === "expertMode") {
+        expertModeSegmentElement.removeAttribute("hidden");
+      }
+    }
+    inputElement.addEventListener("change", () => {
+      store.state.userExperienceMode = inputElement.value as UserExperienceMode;
+      loadExperience(store.state.userExperienceMode);
+      updateExperienceUI(store.state.userExperienceMode);
+    });
+  });
   const updateExperienceUI = (experience: UserExperienceMode) => {
+    $$(".block-ads").forEach(el => el.setAttribute("hidden", "true"));
+    $$(".unlock-best-quality").forEach(el => el.setAttribute("hidden", "true"));
+    $$(".expert-mode").forEach(el => el.setAttribute("hidden", "true"));
     switch (experience) {
       case "blockAds":
-        document.querySelectorAll(".unlock-best-quality").forEach(el => {
-          el.setAttribute("hidden", "true");
-        });
-        document.querySelectorAll(".expert-mode").forEach(el => {
-          el.setAttribute("hidden", "true");
-        });
-        document.querySelectorAll(".block-ads").forEach(el => {
-          el.removeAttribute("hidden");
-        });
+        $$(".block-ads").forEach(el => el.removeAttribute("hidden"));
         break;
       case "unlockBestQuality":
-        document.querySelectorAll(".block-ads").forEach(el => {
-          el.setAttribute("hidden", "true");
-        });
-        document.querySelectorAll(".expert-mode").forEach(el => {
-          el.setAttribute("hidden", "true");
-        });
-        document.querySelectorAll(".unlock-best-quality").forEach(el => {
-          el.removeAttribute("hidden");
-        });
+        $$(".unlock-best-quality").forEach(el => el.removeAttribute("hidden"));
         break;
       case "expertMode":
-        document.querySelectorAll(".block-ads").forEach(el => {
-          el.setAttribute("hidden", "true");
-        });
-        document.querySelectorAll(".unlock-best-quality").forEach(el => {
-          el.setAttribute("hidden", "true");
-        });
-        document.querySelectorAll(".expert-mode").forEach(el => {
-          el.removeAttribute("hidden");
-        });
+        $$(".expert-mode").forEach(el => el.removeAttribute("hidden"));
         break;
     }
+    // Because the experience mode can change the passport config, we need to update the custom passport checkboxes.
+    const customPassportCheckboxElements = $$(
+      "input[type='checkbox'][name='passport-custom']"
+    ) as NodeListOf<HTMLInputElement>;
+    customPassportCheckboxElements.forEach(checkbox => {
+      checkbox.checked =
+        store.state.customPassport[checkbox.value as keyof PassportConfig];
+    });
     updateProxyUsage();
   };
-  blockAdsInputElement.addEventListener("change", () => {
-    store.state.userExperienceMode = "blockAds";
-    loadExperience(store.state.userExperienceMode);
-    updateExperienceUI(store.state.userExperienceMode);
-  });
-  unlockBestQualityInputElement.addEventListener("change", () => {
-    store.state.userExperienceMode = "unlockBestQuality";
-    loadExperience(store.state.userExperienceMode);
-    updateExperienceUI(store.state.userExperienceMode);
-  });
-  expertModeInputElement.addEventListener("change", () => {
-    store.state.userExperienceMode = "expertMode";
-    loadExperience(store.state.userExperienceMode);
-    updateExperienceUI(store.state.userExperienceMode);
-    // TODO: Implement keyboard shortcut to show/hide expert mode.
-  });
   loadExperience(store.state.userExperienceMode);
   updateExperienceUI(store.state.userExperienceMode);
   // Passport
@@ -224,6 +200,21 @@ function main() {
     updateProxyUsage();
   });
   updateProxyUsage();
+  const customPassportCheckboxElements = $$(
+    "input[type='checkbox'][name='passport-custom']"
+  ) as NodeListOf<HTMLInputElement>;
+  customPassportCheckboxElements.forEach(checkbox => {
+    checkbox.checked =
+      store.state.customPassport[checkbox.value as keyof PassportConfig];
+    checkbox.addEventListener("change", () => {
+      store.state.customPassport[checkbox.value as keyof PassportConfig] =
+        checkbox.checked;
+      if (isChromium && store.state.chromiumProxyActive) {
+        updateProxySettings();
+      }
+      updateProxyUsage();
+    });
+  });
   anonymousModeCheckboxElement.checked = store.state.anonymousMode;
   anonymousModeCheckboxElement.addEventListener("change", () => {
     store.state.anonymousMode = anonymousModeCheckboxElement.checked;
@@ -295,12 +286,7 @@ function updateProxyUsage() {
     isFlagged: false,
   };
   const flaggedRequestParams = {
-    isChromium: isChromium,
-    optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
-    passportLevel: store.state.passportLevel,
-    customPassport: store.state.customPassportEnabled
-      ? store.state.customPassport
-      : null,
+    ...unflaggedRequestParams,
     fullModeEnabled: true,
     isFlagged: true,
   };
@@ -913,3 +899,40 @@ generateTwitchTabsReportButtonElement.addEventListener("click", async () => {
     "Report saved successfully. Please send it to the developer if requested."
   );
 });
+
+// From https://stackoverflow.com/a/31627191
+
+const konamiCode = [
+  "ArrowUp",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowLeft",
+  "ArrowRight",
+  "b",
+  "a",
+];
+let konamiCodePosition = 0;
+
+document.addEventListener("keydown", function (e) {
+  const key = e.key;
+  const expectedKey = konamiCode[konamiCodePosition];
+
+  if (key == expectedKey) {
+    konamiCodePosition += 1;
+
+    // Complete code entered correctly.
+    if (konamiCodePosition == konamiCode.length) {
+      konamiCodeActivate();
+      konamiCodePosition = 0;
+    }
+  } else {
+    konamiCodePosition = 0;
+  }
+});
+
+function konamiCodeActivate() {
+  expertModeSegmentElement.removeAttribute("hidden");
+}

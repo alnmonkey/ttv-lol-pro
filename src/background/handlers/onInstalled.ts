@@ -41,16 +41,19 @@ export default function onInstalled(
   const chromiumProxy = "chromium.api.cdn-perfprod.com:2023";
   const firefoxProxy = "firefox.api.cdn-perfprod.com:2023";
   const mayWantBestQualityExperience =
+    store.state.passportLevel < 2 &&
+    store.state.optimizedProxiesEnabled &&
     store.state.optimizedProxies.length === 1 &&
-    [chromiumProxy, firefoxProxy].includes(store.state.optimizedProxies[0]) &&
+    (store.state.optimizedProxies[0] === chromiumProxy ||
+      store.state.optimizedProxies[0] === firefoxProxy) &&
     store.state.normalProxies.length === 0;
   if (
     details.reason === "install" ||
     (details.reason === "update" && mayWantBestQualityExperience)
   ) {
-    const CURRENT_SETUP_VERSION = 1;
-    if (store.state.setupVersion < CURRENT_SETUP_VERSION) {
-      store.state.setupVersion = CURRENT_SETUP_VERSION;
+    const currentSetupVersion = 1; // Careful! Increasing this number will trigger the setup page to open for everyone.
+    if (store.state.completedSetupVersion < currentSetupVersion) {
+      store.state.completedSetupVersion = currentSetupVersion;
       browser.tabs.create({
         url: setupPageURL,
       });

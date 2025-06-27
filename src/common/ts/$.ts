@@ -1,4 +1,3 @@
-const $ = (selectors: string): Element | null =>
-  document.querySelector(selectors);
+const $ = document.querySelector.bind(document);
 
 export default $;

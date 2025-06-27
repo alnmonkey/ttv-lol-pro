@@ -14,8 +14,8 @@ export default function loadExperience(experience: UserExperienceMode) {
         passport: false,
         usher: true,
         videoWeaver: false,
-        graphQL: false,
-        graphQLToken: false,
+        graphQL: true,
+        graphQLToken: true,
         graphQLIntegrity: false,
         twitchWebpage: false,
       };

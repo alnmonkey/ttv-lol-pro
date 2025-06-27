@@ -19,6 +19,7 @@ export interface State {
   allowOtherProxyProtocols: boolean;
   anonymousMode: boolean;
   chromiumProxyActive: boolean;
+  completedSetupVersion: number;
   customPassport: PassportConfig;
   customPassportEnabled: boolean;
   dnsResponses: DnsResponse[];
@@ -27,7 +28,6 @@ export interface State {
   optimizedProxies: string[];
   optimizedProxiesEnabled: boolean;
   passportLevel: number;
-  setupVersion: number;
   streamStatuses: Record<string, StreamStatus>;
   userExperienceMode: UserExperienceMode;
   videoWeaverUrlsByChannel: Record<string, string[]>;

@@ -10,6 +10,7 @@ export default function getDefaultState() {
     allowOtherProxyProtocols: false,
     anonymousMode: true,
     chromiumProxyActive: false,
+    completedSetupVersion: 0,
     customPassport: {
       passport: false,
       usher: true,
@@ -28,7 +29,6 @@ export default function getDefaultState() {
       : ["firefox.api.cdn-perfprod.com:2023"],
     optimizedProxiesEnabled: true,
     passportLevel: 0,
-    setupVersion: 0,
     streamStatuses: {},
     userExperienceMode: "blockAds",
     videoWeaverUrlsByChannel: {},

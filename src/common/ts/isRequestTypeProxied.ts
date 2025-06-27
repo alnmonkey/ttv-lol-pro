@@ -56,20 +56,21 @@ export default function isRequestTypeProxied(
     }
   }
 
+  // TODO: Rework this to have GraphQLToken, GraphQLIntegrity, and GraphQLAll types.
   if (type === ProxyRequestType.GraphQL) {
     // Proxy all GQL requests when passport is unoptimized official+ (Chromium)
     // or unoptimized diplomatic+ (Firefox).
     if (
       params.isChromium &&
       !params.optimizedProxiesEnabled &&
-      (params.customPassport?.graphQL ?? params.passportLevel >= 1)
+      (params.customPassport?.graphQL ?? params.passportLevel >= 1) // FIXME: This logic sucks.
     ) {
       return true;
     }
     if (
       !params.isChromium &&
       !params.optimizedProxiesEnabled &&
-      (params.customPassport?.graphQL ?? params.passportLevel >= 2)
+      (params.customPassport?.graphQL ?? params.passportLevel >= 2) // FIXME: This logic sucks.
     ) {
       return true;
     }
