@@ -13,8 +13,8 @@ export default function getDefaultState() {
     completedSetupVersion: 0,
     customPassport: {
       passport: false,
-      usher: true,
-      videoWeaver: true,
+      usher: false,
+      videoWeaver: false,
       graphQL: false,
       graphQLToken: false,
       graphQLIntegrity: false,
@@ -31,6 +31,7 @@ export default function getDefaultState() {
     passportLevel: 0,
     streamStatuses: {},
     userExperienceMode: "blockAds",
+    userExperienceOverridenOptions: {},
     videoWeaverUrlsByChannel: {},
     whitelistChannelSubscriptions: true,
     whitelistedChannels: [],

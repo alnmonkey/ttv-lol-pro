@@ -15,15 +15,7 @@ export default function onBeforeVideoWeaverRequest(
   // Filter to video-weaver responses.
   const host = getHostFromUrl(details.url);
   if (!host || !videoWeaverHostRegex.test(host)) return;
-  if (
-    !(
-      (
-        store.state.adLogEnabled &&
-        store.state.userExperienceMode !== "unlockBestQuality"
-      ) // Feature not available in this experience.
-    )
-  )
-    return;
+  if (!store.state.adLogEnabled) return;
 
   filterResponseDataWrapper(details, text => {
     const adSignifier = "stitched-ad";

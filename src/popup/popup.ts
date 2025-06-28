@@ -209,7 +209,10 @@ copyDebugInfoButtonElement.addEventListener("click", async e => {
     `Extension: ${extensionInfo.name} v${extensionInfo.version} (${extensionInfo.installType})\n`,
     `Browser: ${userAgentParser.getBrowserName()} ${userAgentParser.getBrowserVersion()} (${userAgentParser.getOSName()} ${userAgentParser.getOSVersion()})\n`,
     `Options:\n`,
-    `- Passport level: ${store.state.passportLevel}\n`,
+    `- User experience: ${store.state.userExperienceMode}\n`,
+    store.state.customPassportEnabled
+      ? `- Custom passport: ${JSON.stringify(store.state.customPassport)}\n`
+      : `- Passport level: ${store.state.passportLevel}\n`,
     `- Anonymous mode: ${store.state.anonymousMode}\n`,
     store.state.optimizedProxiesEnabled
       ? `- Using optimized proxies: ${JSON.stringify(

@@ -160,36 +160,24 @@ function main() {
     inputElement.addEventListener("change", () => {
       store.state.userExperienceMode = inputElement.value as UserExperienceMode;
       loadExperience(store.state.userExperienceMode);
-      updateExperienceUI(store.state.userExperienceMode);
+      window.location.reload();
     });
   });
-  const updateExperienceUI = (experience: UserExperienceMode) => {
-    $$(".block-ads").forEach(el => el.setAttribute("hidden", "true"));
-    $$(".unlock-best-quality").forEach(el => el.setAttribute("hidden", "true"));
-    $$(".expert-mode").forEach(el => el.setAttribute("hidden", "true"));
-    switch (experience) {
-      case "blockAds":
-        $$(".block-ads").forEach(el => el.removeAttribute("hidden"));
-        break;
-      case "unlockBestQuality":
-        $$(".unlock-best-quality").forEach(el => el.removeAttribute("hidden"));
-        break;
-      case "expertMode":
-        $$(".expert-mode").forEach(el => el.removeAttribute("hidden"));
-        break;
-    }
-    // Because the experience mode can change the passport config, we need to update the custom passport checkboxes.
-    const customPassportCheckboxElements = $$(
-      "input[type='checkbox'][name='passport-custom']"
-    ) as NodeListOf<HTMLInputElement>;
-    customPassportCheckboxElements.forEach(checkbox => {
-      checkbox.checked =
-        store.state.customPassport[checkbox.value as keyof PassportConfig];
-    });
-    updateProxyUsage();
-  };
   loadExperience(store.state.userExperienceMode);
-  updateExperienceUI(store.state.userExperienceMode);
+  $$(".block-ads").forEach(el => el.setAttribute("hidden", "true"));
+  $$(".unlock-best-quality").forEach(el => el.setAttribute("hidden", "true"));
+  $$(".expert-mode").forEach(el => el.setAttribute("hidden", "true"));
+  switch (store.state.userExperienceMode) {
+    case "blockAds":
+      $$(".block-ads").forEach(el => el.removeAttribute("hidden"));
+      break;
+    case "unlockBestQuality":
+      $$(".unlock-best-quality").forEach(el => el.removeAttribute("hidden"));
+      break;
+    case "expertMode":
+      $$(".expert-mode").forEach(el => el.removeAttribute("hidden"));
+      break;
+  }
   // Passport
   passportLevelSliderElement.value = store.state.passportLevel.toString();
   passportLevelSliderElement.addEventListener("input", () => {
@@ -199,7 +187,6 @@ function main() {
     }
     updateProxyUsage();
   });
-  updateProxyUsage();
   const customPassportCheckboxElements = $$(
     "input[type='checkbox'][name='passport-custom']"
   ) as NodeListOf<HTMLInputElement>;
@@ -215,6 +202,7 @@ function main() {
       updateProxyUsage();
     });
   });
+  updateProxyUsage();
   anonymousModeCheckboxElement.checked = store.state.anonymousMode;
   anonymousModeCheckboxElement.addEventListener("change", () => {
     store.state.anonymousMode = anonymousModeCheckboxElement.checked;
@@ -679,8 +667,9 @@ exportButtonElement.addEventListener("click", () => {
     normalProxies: store.state.normalProxies,
     optimizedProxies: store.state.optimizedProxies,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
-    userExperienceMode: store.state.userExperienceMode,
     passportLevel: store.state.passportLevel,
+    userExperienceMode: store.state.userExperienceMode,
+    userExperienceOverridenOptions: store.state.userExperienceOverridenOptions,
     whitelistChannelSubscriptions: store.state.whitelistChannelSubscriptions,
     whitelistedChannels: store.state.whitelistedChannels,
   };

@@ -80,13 +80,22 @@
             <h2>Passport Card</h2>
             <small>Controls which types of requests are proxied.</small>
             <br />
+            <small>
+              Tailored for unlocking the best stream quality when unavailable in
+              your region, <b>not for blocking ads</b>.
+            </small>
+            <br />
           </div>
           <div class="expert-mode">
             <h2>Passport Forge</h2>
-            <small>Controls which types of requests are proxied.</small>
+            <small>
+              Controls which types of requests are proxied. Customize your
+              passport to proxy the requests you want.
+            </small>
             <br />
             <small>
-              Customize your passport to proxy the requests you want.
+              GraphQL Token and GraphQL Integrity require the GraphQL option to
+              be enabled when using 'Proxy ad requests only' mode.
             </small>
             <br />
           </div>
@@ -120,12 +129,12 @@
               <p>
                 The "Unlock Best Quality" experience has configured your
                 passport to unlock the highest stream quality when unavailable
-                in your region (e.g. Russia). This experience does not block
-                ads.
+                in your region (e.g. Russia). 1440p and 4K may not be unlocked
+                depending on the proxy you are using and/or your device.
               </p>
             </div>
             <div class="grid-slider expert-mode">
-              <fieldset>
+              <fieldset aria-label="Customize Your Passport">
                 <div>
                   <input
                     type="checkbox"
@@ -160,7 +169,7 @@
                     name="passport-custom"
                     value="graphQL"
                   />
-                  <label for="passport-custom-graphQL">GQL</label>
+                  <label for="passport-custom-graphQL">GraphQL</label>
                 </div>
                 <div>
                   <input
@@ -169,7 +178,9 @@
                     name="passport-custom"
                     value="graphQLToken"
                   />
-                  <label for="passport-custom-graphQLToken">GQL Token</label>
+                  <label for="passport-custom-graphQLToken"
+                    >GraphQL Token</label
+                  >
                 </div>
                 <div>
                   <input
@@ -179,7 +190,7 @@
                     value="graphQLIntegrity"
                   />
                   <label for="passport-custom-graphQLIntegrity"
-                    >GQL Integrity</label
+                    >GraphQL Integrity</label
                   >
                 </div>
                 <div>
@@ -210,7 +221,7 @@
                     <td id="passport-level-proxy-usage-video-weaver"></td>
                   </tr>
                   <tr>
-                    <td>GQL</td>
+                    <td>GraphQL</td>
                     <td id="passport-level-proxy-usage-gql"></td>
                   </tr>
                   <tr>
@@ -234,7 +245,7 @@
             </small>
           </div>
           <ul class="options-list">
-            <li>
+            <li class="block-ads expert-mode">
               <input
                 type="checkbox"
                 name="anonymous-mode-checkbox"
@@ -300,7 +311,10 @@
             <code>username:password@hostname:port</code>
           </small>
           <br />
-          <fieldset class="proxy-mode-radio-buttons">
+          <fieldset
+            class="proxy-mode-radio-buttons"
+            aria-label="Select Proxy Mode"
+          >
             <div>
               <input
                 type="radio"
