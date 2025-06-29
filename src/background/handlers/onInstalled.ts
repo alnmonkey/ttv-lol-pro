@@ -3,9 +3,9 @@ import browser, { Runtime } from "webextension-polyfill";
 import isChromium from "../../common/ts/isChromium";
 import store from "../../store";
 
-export default function onInstalled(
+export default async function onInstalled(
   details: Runtime.OnInstalledDetailsType
-): void {
+): Promise<void> {
   if (store.readyState !== "complete")
     return store.addEventListener("load", () => onInstalled(details));
 
@@ -38,15 +38,18 @@ export default function onInstalled(
     }
   }
 
+  const languages = [
+    browser.i18n.getUILanguage(),
+    ...(await browser.i18n.getAcceptLanguages()),
+  ];
   const chromiumProxy = "chromium.api.cdn-perfprod.com:2023";
   const firefoxProxy = "firefox.api.cdn-perfprod.com:2023";
   const mayWantBestQualityExperience =
-    store.state.passportLevel < 2 &&
+    languages.some(lang => lang.startsWith("ru")) &&
     store.state.optimizedProxiesEnabled &&
-    store.state.optimizedProxies.length === 1 &&
+    store.state.optimizedProxies.length >= 1 &&
     (store.state.optimizedProxies[0] === chromiumProxy ||
-      store.state.optimizedProxies[0] === firefoxProxy) &&
-    store.state.normalProxies.length === 0;
+      store.state.optimizedProxies[0] === firefoxProxy);
   if (
     details.reason === "install" ||
     (details.reason === "update" && mayWantBestQualityExperience)
@@ -55,7 +58,7 @@ export default function onInstalled(
     if (store.state.completedSetupVersion < currentSetupVersion) {
       store.state.completedSetupVersion = currentSetupVersion;
       browser.tabs.create({
-        url: setupPageURL,
+        url: `${setupPageURL}?reason=${details.reason}`,
       });
     }
   }
