@@ -45,7 +45,7 @@ export default async function onInstalled(
   const chromiumProxy = "chromium.api.cdn-perfprod.com:2023";
   const firefoxProxy = "firefox.api.cdn-perfprod.com:2023";
   const mayWantBestQualityExperience =
-    languages.some(lang => lang.startsWith("ru")) &&
+    languages.some(lang => lang.startsWith("ru") || lang.endsWith("-RU")) &&
     store.state.optimizedProxiesEnabled &&
     store.state.optimizedProxies.length >= 1 &&
     (store.state.optimizedProxies[0] === chromiumProxy ||
