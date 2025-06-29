@@ -104,11 +104,20 @@ export type ProxyRequestParams =
       isChromium: true;
       optimizedProxiesEnabled: boolean;
       passportLevel: number;
+      customPassport: PassportConfig | null;
       fullModeEnabled?: boolean;
     }
   | {
       isChromium: false;
       optimizedProxiesEnabled: boolean;
       passportLevel: number;
+      customPassport: PassportConfig | null;
       isFlagged?: boolean;
     };
+
+export type UserExperienceMode =
+  | "blockAds"
+  | "unlockBestQuality"
+  | "expertMode";
+
+export type PassportConfig = Record<ProxyRequestType, boolean>;

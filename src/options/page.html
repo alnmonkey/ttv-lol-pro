@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div class="wrapper">
+    <div class="container">
       <header>
         <div class="title-container">
           <img
@@ -27,27 +27,89 @@
         </div>
       </header>
 
+      <div class="experience-container">
+        <div class="separator"></div>
+        <fieldset class="segmented-control" aria-label="Select Experience">
+          <div class="segment">
+            <input
+              type="radio"
+              id="block-ads"
+              name="experience"
+              value="blockAds"
+            />
+            <label for="block-ads">Block Ads</label>
+          </div>
+          <div class="segment">
+            <input
+              type="radio"
+              id="unlock-best-quality"
+              name="experience"
+              value="unlockBestQuality"
+            />
+            <label for="unlock-best-quality">Unlock Best Quality</label>
+          </div>
+          <div id="expert-mode-segment" class="segment" hidden>
+            <input
+              type="radio"
+              id="expert-mode"
+              name="experience"
+              value="expertMode"
+            />
+            <label for="expert-mode">Expert Mode</label>
+          </div>
+        </fieldset>
+      </div>
+
       <main>
         <!-- Passport -->
         <section id="passport" class="section">
-          <h2>Passport</h2>
-          <small>
-            Controls which types of requests are proxied. Increase the slider
-            <b>only if you are seeing ads</b> with the current setting.
-          </small>
-          <br />
-          <small>
-            If you are seeing "Commercial break in progress" ads, increasing the
-            slider <b>will not help</b>.
-          </small>
-          <br />
+          <div class="block-ads">
+            <h2>Passport</h2>
+            <small>
+              Controls which types of requests are proxied. Increase the slider
+              <b>only if you are seeing ads</b> with the current setting.
+            </small>
+            <br />
+            <small>
+              If you are seeing "Commercial break in progress" ads, increasing
+              the slider <b>will not help</b>.
+            </small>
+            <br />
+          </div>
+          <div class="unlock-best-quality">
+            <h2>Passport Card</h2>
+            <small>Controls which types of requests are proxied.</small>
+            <br />
+            <small>
+              Tailored for unlocking the best stream quality when unavailable in
+              your region, <b>not for blocking ads</b>.
+            </small>
+            <br />
+          </div>
+          <div class="expert-mode">
+            <h2>Passport Forge</h2>
+            <small>
+              Controls which types of requests are proxied. Customize your
+              passport to proxy the requests you want.
+            </small>
+            <br />
+            <small>
+              GraphQL Token and GraphQL Integrity require the GraphQL option to
+              be enabled when using 'Proxy ad requests only' mode.
+            </small>
+            <br />
+          </div>
           <div id="passport-level-container">
             <img
               src="../common/images/passport.png"
               alt="TTV LOL PRO passport"
               id="passport-level-image"
+              class="grid-image"
             />
-            <div id="passport-level-slider-container">
+            <div
+              id="passport-level-slider-container"
+              class="grid-slider block-ads"
+            >
               <input
                 type="range"
                 name="passport-level-slider"
@@ -63,28 +125,107 @@
                 <option value="2" label="Diplomatic"></option>
               </datalist>
             </div>
-            <details id="passport-level-proxy-usage">
+            <div class="grid-slider unlock-best-quality">
+              <p>
+                The "Unlock Best Quality" experience has configured your
+                passport to unlock the highest stream quality when unavailable
+                in your region (e.g. Russia). 1440p and 4K may not be unlocked
+                depending on the proxy you are using and/or your device.
+              </p>
+            </div>
+            <div class="grid-slider expert-mode">
+              <fieldset aria-label="Customize Your Passport">
+                <div>
+                  <input
+                    type="checkbox"
+                    id="passport-custom-passport"
+                    name="passport-custom"
+                    value="passport"
+                  />
+                  <label for="passport-custom-passport">Passport</label>
+                </div>
+                <div>
+                  <input
+                    type="checkbox"
+                    id="passport-custom-usher"
+                    name="passport-custom"
+                    value="usher"
+                  />
+                  <label for="passport-custom-usher">Usher</label>
+                </div>
+                <div>
+                  <input
+                    type="checkbox"
+                    id="passport-custom-videoWeaver"
+                    name="passport-custom"
+                    value="videoWeaver"
+                  />
+                  <label for="passport-custom-videoWeaver">Weavers</label>
+                </div>
+                <div>
+                  <input
+                    type="checkbox"
+                    id="passport-custom-graphQL"
+                    name="passport-custom"
+                    value="graphQL"
+                  />
+                  <label for="passport-custom-graphQL">GraphQL</label>
+                </div>
+                <div>
+                  <input
+                    type="checkbox"
+                    id="passport-custom-graphQLToken"
+                    name="passport-custom"
+                    value="graphQLToken"
+                  />
+                  <label for="passport-custom-graphQLToken"
+                    >GraphQL Token</label
+                  >
+                </div>
+                <div>
+                  <input
+                    type="checkbox"
+                    id="passport-custom-graphQLIntegrity"
+                    name="passport-custom"
+                    value="graphQLIntegrity"
+                  />
+                  <label for="passport-custom-graphQLIntegrity"
+                    >GraphQL Integrity</label
+                  >
+                </div>
+                <div>
+                  <input
+                    type="checkbox"
+                    id="passport-custom-twitchWebpage"
+                    name="passport-custom"
+                    value="twitchWebpage"
+                  />
+                  <label for="passport-custom-twitchWebpage">Webpage</label>
+                </div>
+              </fieldset>
+            </div>
+            <details id="passport-level-proxy-usage" class="grid-usage">
               <summary id="passport-level-proxy-usage-summary"></summary>
               <table id="passport-level-proxy-usage-table">
                 <tbody>
                   <tr>
-                    <td>passport.twitch.tv</td>
+                    <td>Passport</td>
                     <td id="passport-level-proxy-usage-passport"></td>
                   </tr>
                   <tr>
-                    <td>usher.ttvnw.net</td>
+                    <td>Usher</td>
                     <td id="passport-level-proxy-usage-usher"></td>
                   </tr>
                   <tr>
-                    <td>video-weaver.*.hls.ttvnw.net</td>
+                    <td>Weavers</td>
                     <td id="passport-level-proxy-usage-video-weaver"></td>
                   </tr>
                   <tr>
-                    <td>gql.twitch.tv</td>
+                    <td>GraphQL</td>
                     <td id="passport-level-proxy-usage-gql"></td>
                   </tr>
                   <tr>
-                    <td>www.twitch.tv</td>
+                    <td>Webpage</td>
                     <td id="passport-level-proxy-usage-www"></td>
                   </tr>
                 </tbody>
@@ -104,7 +245,7 @@
             </small>
           </div>
           <ul class="options-list">
-            <li>
+            <li class="block-ads expert-mode">
               <input
                 type="checkbox"
                 name="anonymous-mode-checkbox"
@@ -139,7 +280,7 @@
           </small>
           <ul id="whitelisted-channels-list" class="store-list"></ul>
           <ul class="options-list">
-            <li>
+            <li class="block-ads expert-mode">
               <input
                 type="checkbox"
                 name="whitelist-subscriptions-checkbox"
@@ -170,7 +311,10 @@
             <code>username:password@hostname:port</code>
           </small>
           <br />
-          <fieldset>
+          <fieldset
+            class="proxy-mode-radio-buttons"
+            aria-label="Select Proxy Mode"
+          >
             <div>
               <input
                 type="radio"
@@ -231,7 +375,7 @@
         </section>
 
         <!-- Ad log -->
-        <section id="ad-log" class="firefox-only section">
+        <section id="ad-log" class="firefox-only section block-ads expert-mode">
           <h2>Ad log</h2>
           <small>
             If enabled, TTV LOL PRO will log all ads that did not get blocked
@@ -248,7 +392,7 @@
               <label for="ad-log-enabled-checkbox">Enable ad log</label>
             </li>
           </ul>
-          <button id="ad-log-send-button" class="btn-primary">
+          <button id="ad-log-send-button" class="button-primary">
             Send ad log to developer…
           </button>
           <button id="ad-log-export-button">Export ad log…</button>

@@ -180,6 +180,9 @@ export function getFetch(pageState: PageState): typeof fetch {
             optimizedProxiesEnabled:
               pageState.state?.optimizedProxiesEnabled ?? true,
             passportLevel: pageState.state?.passportLevel ?? 0,
+            customPassport: pageState.state?.customPassportEnabled
+              ? pageState.state.customPassport
+              : null,
           }
         );
         const shouldFlagRequest = isRequestTypeProxied(
@@ -189,6 +192,9 @@ export function getFetch(pageState: PageState): typeof fetch {
             optimizedProxiesEnabled:
               pageState.state?.optimizedProxiesEnabled ?? true,
             passportLevel: pageState.state?.passportLevel ?? 0,
+            customPassport: pageState.state?.customPassportEnabled
+              ? pageState.state.customPassport
+              : null,
           }
         );
         // "PlaybackAccessToken" requests contain a Client-Integrity header.
@@ -237,6 +243,9 @@ export function getFetch(pageState: PageState): typeof fetch {
             optimizedProxiesEnabled:
               pageState.state?.optimizedProxiesEnabled ?? true,
             passportLevel: pageState.state?.passportLevel ?? 0,
+            customPassport: pageState.state?.customPassportEnabled
+              ? pageState.state.customPassport
+              : null,
           }
         );
         if (shouldFlagRequest) {
@@ -281,6 +290,9 @@ export function getFetch(pageState: PageState): typeof fetch {
         optimizedProxiesEnabled:
           pageState.state?.optimizedProxiesEnabled ?? true,
         passportLevel: pageState.state?.passportLevel ?? 0,
+        customPassport: pageState.state?.customPassportEnabled
+          ? pageState.state.customPassport
+          : null,
       });
       if (shouldFlagRequest) {
         console.debug("[TTV LOL PRO] Flagging Usher request…");
@@ -350,6 +362,9 @@ export function getFetch(pageState: PageState): typeof fetch {
           optimizedProxiesEnabled:
             pageState.state?.optimizedProxiesEnabled ?? true,
           passportLevel: pageState.state?.passportLevel ?? 0,
+          customPassport: pageState.state?.customPassportEnabled
+            ? pageState.state.customPassport
+            : null,
         }
       );
       const proxiedCount = videoWeaverUrlsProxiedCount.get(videoWeaverUrl) ?? 0;
@@ -834,6 +849,9 @@ async function fetchReplacementPlaybackAccessToken(
         optimizedProxiesEnabled:
           pageState.state?.optimizedProxiesEnabled ?? true,
         passportLevel: pageState.state?.passportLevel ?? 0,
+        customPassport: pageState.state?.customPassportEnabled
+          ? pageState.state.customPassport
+          : null,
       }
     );
     if (isFlaggedRequest) {
@@ -900,6 +918,9 @@ async function fetchReplacementUsherManifest(
       isChromium: pageState.isChromium,
       optimizedProxiesEnabled: pageState.state?.optimizedProxiesEnabled ?? true,
       passportLevel: pageState.state?.passportLevel ?? 0,
+      customPassport: pageState.state?.customPassportEnabled
+        ? pageState.state.customPassport
+        : null,
     });
     if (isFlaggedRequest) {
       request = await flagRequest(request, ProxyRequestType.Usher, pageState);

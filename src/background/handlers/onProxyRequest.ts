@@ -55,6 +55,9 @@ export default async function onProxyRequest(
     isChromium: false,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
     passportLevel: store.state.passportLevel,
+    customPassport: store.state.customPassportEnabled
+      ? store.state.customPassport
+      : null,
     isFlagged: isFlaggedRequest(details.requestHeaders),
   };
   const proxyPassportRequest = isRequestTypeProxied(

@@ -2,11 +2,13 @@ import Bowser from "bowser";
 import browser from "webextension-polyfill";
 import onStartupStoreCleanup from "../background/handlers/onStartupStoreCleanup";
 import $ from "../common/ts/$";
+import $$ from "../common/ts/$$";
 import { readFile, saveFile } from "../common/ts/file";
 import findChannelFromTwitchTvUrl from "../common/ts/findChannelFromTwitchTvUrl";
 import isChannelWhitelisted from "../common/ts/isChannelWhitelisted";
 import isChromium from "../common/ts/isChromium";
 import isRequestTypeProxied from "../common/ts/isRequestTypeProxied";
+import loadExperience from "../common/ts/loadExperience";
 import { getProxyInfoFromUrl } from "../common/ts/proxyInfo";
 import {
   clearProxySettings,
@@ -16,7 +18,12 @@ import sendAdLog from "../common/ts/sendAdLog";
 import store from "../store";
 import getDefaultState from "../store/getDefaultState";
 import type { State } from "../store/types";
-import { KeyOfType, ProxyRequestType } from "../types";
+import {
+  KeyOfType,
+  PassportConfig,
+  ProxyRequestType,
+  UserExperienceMode,
+} from "../types";
 
 //#region Types
 type AllowedResult = [boolean, string?];
@@ -41,6 +48,8 @@ type ListOptions = {
 const exportButtonElement = $("#export-button") as HTMLButtonElement;
 const importButtonElement = $("#import-button") as HTMLButtonElement;
 const resetButtonElement = $("#reset-button") as HTMLButtonElement;
+// Experience
+const expertModeSegmentElement = $("#expert-mode-segment") as HTMLDivElement;
 // Passport
 const passportLevelSliderElement = $(
   "#passport-level-slider"
@@ -137,6 +146,38 @@ function main() {
   document
     .querySelectorAll(isChromium ? ".firefox-only" : ".chromium-only")
     .forEach(element => element.remove());
+  // Experience
+  const experienceInputElements = $$(
+    "input[type='radio'][name='experience']"
+  ) as NodeListOf<HTMLInputElement>;
+  experienceInputElements.forEach(inputElement => {
+    if (inputElement.value === store.state.userExperienceMode) {
+      inputElement.checked = true;
+      if (store.state.userExperienceMode === "expertMode") {
+        expertModeSegmentElement.removeAttribute("hidden");
+      }
+    }
+    inputElement.addEventListener("change", () => {
+      store.state.userExperienceMode = inputElement.value as UserExperienceMode;
+      loadExperience(store.state.userExperienceMode);
+      window.location.reload();
+    });
+  });
+  loadExperience(store.state.userExperienceMode);
+  $$(".block-ads").forEach(el => el.setAttribute("hidden", "true"));
+  $$(".unlock-best-quality").forEach(el => el.setAttribute("hidden", "true"));
+  $$(".expert-mode").forEach(el => el.setAttribute("hidden", "true"));
+  switch (store.state.userExperienceMode) {
+    case "blockAds":
+      $$(".block-ads").forEach(el => el.removeAttribute("hidden"));
+      break;
+    case "unlockBestQuality":
+      $$(".unlock-best-quality").forEach(el => el.removeAttribute("hidden"));
+      break;
+    case "expertMode":
+      $$(".expert-mode").forEach(el => el.removeAttribute("hidden"));
+      break;
+  }
   // Passport
   passportLevelSliderElement.value = store.state.passportLevel.toString();
   passportLevelSliderElement.addEventListener("input", () => {
@@ -145,6 +186,21 @@ function main() {
       updateProxySettings();
     }
     updateProxyUsage();
+  });
+  const customPassportCheckboxElements = $$(
+    "input[type='checkbox'][name='passport-custom']"
+  ) as NodeListOf<HTMLInputElement>;
+  customPassportCheckboxElements.forEach(checkbox => {
+    checkbox.checked =
+      store.state.customPassport[checkbox.value as keyof PassportConfig];
+    checkbox.addEventListener("change", () => {
+      store.state.customPassport[checkbox.value as keyof PassportConfig] =
+        checkbox.checked;
+      if (isChromium && store.state.chromiumProxyActive) {
+        updateProxySettings();
+      }
+      updateProxyUsage();
+    });
   });
   updateProxyUsage();
   anonymousModeCheckboxElement.checked = store.state.anonymousMode;
@@ -207,12 +263,20 @@ function main() {
 }
 
 function updateProxyUsage() {
-  const requestParams = {
+  const unflaggedRequestParams = {
     isChromium: isChromium,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
     passportLevel: store.state.passportLevel,
+    customPassport: store.state.customPassportEnabled
+      ? store.state.customPassport
+      : null,
     fullModeEnabled: false,
     isFlagged: false,
+  };
+  const flaggedRequestParams = {
+    ...unflaggedRequestParams,
+    fullModeEnabled: true,
+    isFlagged: true,
   };
 
   // Proxy usage label.
@@ -220,7 +284,12 @@ function updateProxyUsage() {
   // Unoptimized mode penalty.
   if (!store.state.optimizedProxiesEnabled) usageScore += 1;
   // GraphQL integrity penalty and warning.
-  if (isRequestTypeProxied(ProxyRequestType.GraphQLIntegrity, requestParams)) {
+  if (
+    isRequestTypeProxied(
+      ProxyRequestType.GraphQLIntegrity,
+      unflaggedRequestParams
+    )
+  ) {
     usageScore += 1;
     passportLevelWarningElement.style.display = "block";
   } else {
@@ -243,35 +312,54 @@ function updateProxyUsage() {
   }
 
   // Passport
-  if (isRequestTypeProxied(ProxyRequestType.Passport, requestParams)) {
+  if (isRequestTypeProxied(ProxyRequestType.Passport, unflaggedRequestParams)) {
     passportLevelProxyUsagePassportElement.textContent = "All";
   } else {
     passportLevelProxyUsagePassportElement.textContent = "None";
   }
   // Usher
-  passportLevelProxyUsageUsherElement.textContent = "All";
-  // Video Weaver
-  if (isRequestTypeProxied(ProxyRequestType.VideoWeaver, requestParams)) {
-    passportLevelProxyUsageVideoWeaverElement.textContent = "All";
+  if (isRequestTypeProxied(ProxyRequestType.Usher, flaggedRequestParams)) {
+    passportLevelProxyUsageUsherElement.textContent = "All";
   } else {
+    passportLevelProxyUsageUsherElement.textContent = "None";
+  }
+  // Video Weaver
+  const flaggedVideoWeaverProxied = isRequestTypeProxied(
+    ProxyRequestType.VideoWeaver,
+    flaggedRequestParams
+  );
+  const unflaggedVideoWeaverProxied = isRequestTypeProxied(
+    ProxyRequestType.VideoWeaver,
+    unflaggedRequestParams
+  );
+  if (flaggedVideoWeaverProxied && unflaggedVideoWeaverProxied) {
+    passportLevelProxyUsageVideoWeaverElement.textContent = "All";
+  } else if (flaggedVideoWeaverProxied && !unflaggedVideoWeaverProxied) {
     passportLevelProxyUsageVideoWeaverElement.textContent = "Few";
+  } else {
+    passportLevelProxyUsageVideoWeaverElement.textContent = "None";
   }
   // GraphQL
-  if (isRequestTypeProxied(ProxyRequestType.GraphQL, requestParams)) {
+  if (isRequestTypeProxied(ProxyRequestType.GraphQL, unflaggedRequestParams)) {
     passportLevelProxyUsageGqlElement.textContent = "All";
   } else if (
-    isRequestTypeProxied(ProxyRequestType.GraphQLIntegrity, requestParams)
+    isRequestTypeProxied(
+      ProxyRequestType.GraphQLIntegrity,
+      unflaggedRequestParams
+    )
   ) {
     passportLevelProxyUsageGqlElement.textContent = "Some";
   } else if (
-    isRequestTypeProxied(ProxyRequestType.GraphQLToken, requestParams)
+    isRequestTypeProxied(ProxyRequestType.GraphQLToken, unflaggedRequestParams)
   ) {
     passportLevelProxyUsageGqlElement.textContent = "Few";
   } else {
     passportLevelProxyUsageGqlElement.textContent = "None";
   }
   // WWW
-  if (isRequestTypeProxied(ProxyRequestType.TwitchWebpage, requestParams)) {
+  if (
+    isRequestTypeProxied(ProxyRequestType.TwitchWebpage, unflaggedRequestParams)
+  ) {
     passportLevelProxyUsageWwwElement.textContent = "All";
   } else {
     passportLevelProxyUsageWwwElement.textContent = "None";
@@ -574,10 +662,14 @@ exportButtonElement.addEventListener("click", () => {
     adLogEnabled: store.state.adLogEnabled,
     allowOtherProxyProtocols: store.state.allowOtherProxyProtocols,
     anonymousMode: store.state.anonymousMode,
+    customPassport: store.state.customPassport,
+    customPassportEnabled: store.state.customPassportEnabled,
     normalProxies: store.state.normalProxies,
     optimizedProxies: store.state.optimizedProxies,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
     passportLevel: store.state.passportLevel,
+    userExperienceMode: store.state.userExperienceMode,
+    userExperienceOverridenOptions: store.state.userExperienceOverridenOptions,
     whitelistChannelSubscriptions: store.state.whitelistChannelSubscriptions,
     whitelistedChannels: store.state.whitelistedChannels,
   };
@@ -796,3 +888,40 @@ generateTwitchTabsReportButtonElement.addEventListener("click", async () => {
     "Report saved successfully. Please send it to the developer if requested."
   );
 });
+
+// From https://stackoverflow.com/a/31627191
+
+const konamiCode = [
+  "ArrowUp",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowLeft",
+  "ArrowRight",
+  "b",
+  "a",
+];
+let konamiCodePosition = 0;
+
+document.addEventListener("keydown", function (e) {
+  const key = e.key;
+  const expectedKey = konamiCode[konamiCodePosition];
+
+  if (key == expectedKey) {
+    konamiCodePosition += 1;
+
+    // Complete code entered correctly.
+    if (konamiCodePosition == konamiCode.length) {
+      konamiCodeActivate();
+      konamiCodePosition = 0;
+    }
+  } else {
+    konamiCodePosition = 0;
+  }
+});
+
+function konamiCodeActivate() {
+  expertModeSegmentElement.removeAttribute("hidden");
+}

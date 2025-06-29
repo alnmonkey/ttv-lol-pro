@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quick Setup - TTV LOL PRO</title>
+    <link rel="icon" href="../common/images/brand/favicon.ico" />
+    <link rel="stylesheet" href="../common/css/boilerplate.css" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <img
+          src="../common/images/brand/icon.png"
+          alt="Icon of TTV LOL PRO"
+          class="icon"
+        />
+        <h1 class="title">TTV LOL PRO - Quick Setup</h1>
+      </header>
+
+      <form id="setup-form" class="setup-form">
+        <p>
+          TTV LOL PRO is a Twitch ad blocker, but it can also be used to unlock
+          the highest stream quality in regions where Twitch blocks it (e.g.
+          Russia).
+        </p>
+        <ul>
+          <li>
+            If you are in a region where Twitch blocks the highest stream
+            quality, select the "Unlock Best Quality" option below.
+          </li>
+          <li>
+            Otherwise, choose the "Block Ads" option (default) to block ads on
+            Twitch.
+          </li>
+        </ul>
+
+        <fieldset class="segmented-control" aria-label="Select Experience">
+          <div class="segment">
+            <input
+              type="radio"
+              id="block-ads"
+              name="experience"
+              value="blockAds"
+            />
+            <label for="block-ads">Block Ads</label>
+          </div>
+          <div class="segment">
+            <input
+              type="radio"
+              id="unlock-best-quality"
+              name="experience"
+              value="unlockBestQuality"
+            />
+            <label for="unlock-best-quality">Unlock Best Quality</label>
+          </div>
+          <div id="expert-mode-segment" class="segment" hidden>
+            <input
+              type="radio"
+              id="expert-mode"
+              name="experience"
+              value="expertMode"
+            />
+            <label for="expert-mode">Expert Mode</label>
+          </div>
+        </fieldset>
+
+        <button id="done-button" class="button-primary">Done</button>
+      </form>
+
+      <!-- FIXME: This footer makes the build fail for Chromium. -->
+      <!-- <footer>
+        <a href="../options/page.html" target="_blank">View more options</a>
+      </footer> -->
+    </div>
+
+    <script type="module" src="./setup.ts"></script>
+  </body>
+</html>

@@ -9,7 +9,7 @@ import { alpha2 } from "../common/ts/countryCodes";
 import findChannelFromTwitchTvUrl from "../common/ts/findChannelFromTwitchTvUrl";
 import isChannelWhitelisted from "../common/ts/isChannelWhitelisted";
 import store from "../store";
-import type { StreamStatus } from "../types";
+import type { AdLogEntry, StreamStatus } from "../types";
 
 type WarningBannerType = "noProxies";
 
@@ -203,13 +203,24 @@ copyDebugInfoButtonElement.addEventListener("click", async e => {
       ? store.state.streamStatuses[channelNameLower]
       : null;
   const proxySettings = await browser.proxy.settings.get({});
+  const anonymizeAdLogEntry = (adLog: AdLogEntry) => ({
+    ...adLog,
+    proxy:
+      adLog.proxy != null && !e.shiftKey
+        ? anonymizeIpAddress(adLog.proxy)
+        : adLog.proxy,
+    videoWeaverUrl: undefined,
+  });
 
   const debugInfo = [
     `**Debug Info**\n`,
     `Extension: ${extensionInfo.name} v${extensionInfo.version} (${extensionInfo.installType})\n`,
     `Browser: ${userAgentParser.getBrowserName()} ${userAgentParser.getBrowserVersion()} (${userAgentParser.getOSName()} ${userAgentParser.getOSVersion()})\n`,
     `Options:\n`,
-    `- Passport level: ${store.state.passportLevel}\n`,
+    `- User experience: ${store.state.userExperienceMode}\n`,
+    store.state.customPassportEnabled
+      ? `- Custom passport: ${JSON.stringify(store.state.customPassport)}\n`
+      : `- Passport level: ${store.state.passportLevel}\n`,
     `- Anonymous mode: ${store.state.anonymousMode}\n`,
     store.state.optimizedProxiesEnabled
       ? `- Using optimized proxies: ${JSON.stringify(
@@ -246,10 +257,9 @@ copyDebugInfoButtonElement.addEventListener("click", async e => {
         ].join("")
       : "",
     store.state.adLog.length > 0
-      ? `Latest ad log entry: ${JSON.stringify({
-          ...store.state.adLog[store.state.adLog.length - 1],
-          videoWeaverUrl: undefined,
-        })}\n`
+      ? `Latest ad log entry: ${JSON.stringify(
+          anonymizeAdLogEntry(store.state.adLog[store.state.adLog.length - 1])
+        )}\n`
       : "",
   ].join("");
 
