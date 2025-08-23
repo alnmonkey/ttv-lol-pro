@@ -35,7 +35,7 @@
   <a href="https://discord.ttvlolpro.com/">
     <img
       alt="Discord server"
-      src="https://dcbadge.vercel.app/api/server/AmtFTPwsyH"
+      src="https://dcbadge.limes.pink/api/server/AmtFTPwsyH"
     />
   </a>
 </div>
