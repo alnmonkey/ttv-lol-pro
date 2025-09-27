@@ -5,7 +5,6 @@ import { getProxyInfoFromUrl } from "./proxyInfo";
 
 const DNS_API = "https://cloudflare-dns.com/dns-query";
 const MIN_TTL = 300;
-const INFINITE_TTL = -1;
 
 export default async function updateDnsResponses() {
   const proxies = Array.from(
@@ -23,9 +22,7 @@ export default async function updateDnsResponses() {
     const existing =
       existingIndex !== -1 ? store.state.dnsResponses[existingIndex] : null;
     const isDnsResponseValid =
-      existing &&
-      (existing.ttl === INFINITE_TTL ||
-        Date.now() - existing.timestamp < existing.ttl * 1000);
+      existing && Date.now() - existing.timestamp < existing.ttl * 1000;
     if (isDnsResponseValid) {
       continue;
     }
@@ -37,7 +34,7 @@ export default async function updateDnsResponses() {
         host,
         ips: [host],
         timestamp: Date.now(),
-        ttl: INFINITE_TTL,
+        ttl: Infinity,
       });
       continue;
     }
@@ -54,8 +51,8 @@ export default async function updateDnsResponses() {
       ];
       const responses = await Promise.all(requests);
 
-      let ips: string[] = [];
-      let ttl: number | null = null;
+      let ips = [] as string[];
+      let ttl = Infinity;
       for (const response of responses) {
         if (!response.ok) {
           console.error(
@@ -72,7 +69,7 @@ export default async function updateDnsResponses() {
         if (Answer) {
           ips.push(...Answer.map(answer => answer.data));
           const answerTtl = Math.min(...Answer.map(answer => answer.TTL));
-          if (ttl == null || answerTtl < ttl) {
+          if (answerTtl < ttl) {
             ttl = answerTtl;
           }
         }
@@ -86,7 +83,7 @@ export default async function updateDnsResponses() {
         host,
         ips: Array.from(new Set(ips)), // Remove duplicates
         timestamp: Date.now(),
-        ttl: ttl ? Math.max(ttl, MIN_TTL) : MIN_TTL, // Enforce minimum TTL
+        ttl: Math.max(ttl, MIN_TTL), // Enforce minimum TTL
       });
     } catch (error) {
       console.error(error);

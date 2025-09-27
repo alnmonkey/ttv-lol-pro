@@ -3,6 +3,7 @@ import findChannelFromTwitchTvUrl from "../../common/ts/findChannelFromTwitchTvU
 import findChannelFromUsherUrl from "../../common/ts/findChannelFromUsherUrl";
 import findChannelFromVideoWeaverUrl from "../../common/ts/findChannelFromVideoWeaverUrl";
 import getHostFromUrl from "../../common/ts/getHostFromUrl";
+import { normalizeIpAddress } from "../../common/ts/ipAddress";
 import isChromium from "../../common/ts/isChromium";
 import isRequestTypeProxied from "../../common/ts/isRequestTypeProxied";
 import {
@@ -145,8 +146,12 @@ function getProxyFromDetails(
     }
     const ip = details.ip;
     if (!ip) return null;
+    const normalizedIp = normalizeIpAddress(ip) ?? ip;
     const dnsResponse = store.state.dnsResponses.find(dnsResponse =>
-      dnsResponse.ips.some(responseIp => responseIp === ip)
+      dnsResponse.ips.some(responseIp => {
+        const normalizedResponseIp = normalizeIpAddress(responseIp);
+        return (normalizedResponseIp ?? responseIp) === normalizedIp;
+      })
     );
     if (!dnsResponse) return null;
     const proxyInfoArray = proxies.map(getProxyInfoFromUrl);
