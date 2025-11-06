@@ -549,7 +549,7 @@ export default function getFetch(pageState: PageState): typeof fetch {
         videoWeaverUrlsToNotProxy.delete(url); // Shouldn't be necessary, but just in case.
         if (isFrontpage || isWhitelisted) videoWeaverUrlsToNotProxy.add(url);
       });
-      const proxyCountryRegex = url.toLowerCase().includes("/api/v2/")
+      const proxyCountryRegex = url.toLowerCase().includes("api/v2")
         ? /"USER-COUNTRY",VALUE="([A-Z]+)"/i
         : /USER-COUNTRY="([A-Z]+)"/i;
       pageState.sendMessageToContentScript({
@@ -1107,7 +1107,7 @@ async function updateVideoWeaverReplacementMap(
     if (cachedUsherRequestUrl != null && videoWeaverUrls.length > 0) {
       const proxyCountryRegex = cachedUsherRequestUrl
         .toLowerCase()
-        .includes("/api/v2/")
+        .includes("api/v2")
         ? /"USER-COUNTRY",VALUE="([A-Z]+)"/i
         : /USER-COUNTRY="([A-Z]+)"/i;
       pageState.sendMessageToContentScript({
