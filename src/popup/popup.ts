@@ -16,12 +16,8 @@ import store from "../store";
 import type { State } from "../store/types";
 import type { AdLogEntry, StreamStatus } from "../types";
 
-type WarningBannerType = "noProxies";
-
 //#region HTML Elements
-const warningBannerNoProxiesElement = $(
-  "#warning-banner-no-proxies"
-) as HTMLDivElement;
+const warningBannerElement = $("#warning-banner") as HTMLDivElement;
 const streamStatusElement = $("#stream-status") as HTMLDivElement;
 const proxiedElement = $("#proxied") as HTMLDivElement;
 const channelNameElement = $("#channel-name") as HTMLHeadingElement;
@@ -32,15 +28,9 @@ const whitelistToggleElement = $("#whitelist-toggle") as HTMLInputElement;
 const copyProxyCredentialsButtonElement = $(
   "#copy-proxy-credentials-button"
 ) as HTMLButtonElement;
-const copyProxyCredentialsButtonDescriptionElement = $(
-  "#copy-proxy-credentials-button-description"
-) as HTMLParagraphElement;
 const copyDebugInfoButtonElement = $(
   "#copy-debug-info-button"
 ) as HTMLButtonElement;
-const copyDebugInfoButtonDescriptionElement = $(
-  "#copy-debug-info-button-description"
-) as HTMLParagraphElement;
 //#endregion
 
 let previousStreamStatus: StreamStatus | null = null;
@@ -56,10 +46,13 @@ async function main() {
     setWarningBanner("noProxies");
   }
   const proxyInfoArray = proxies.map(getProxyInfoFromUrl);
-  if (
-    !isChromium ||
-    !proxyInfoArray.some(proxy => proxy.username || proxy.password)
-  ) {
+  const shouldShowCopyCredentialsButton =
+    isChromium &&
+    proxyInfoArray.some(proxy => proxy.username || proxy.password);
+  if (shouldShowCopyCredentialsButton) {
+    copyProxyCredentialsButtonElement.parentElement!.style.display =
+      "list-item";
+  } else {
     copyProxyCredentialsButtonElement.parentElement!.remove();
   }
 
@@ -88,13 +81,19 @@ async function main() {
   );
 }
 
-function setWarningBanner(type: WarningBannerType) {
-  // Hide all warning banners.
-  warningBannerNoProxiesElement.style.display = "none";
+function setWarningBanner(type: "noProxies") {
+  // Clear existing content.
+  warningBannerElement.innerHTML = "";
+  warningBannerElement.style.display = "none";
 
   switch (type) {
     case "noProxies":
-      warningBannerNoProxiesElement.style.display = "block";
+      warningBannerElement.innerHTML = /*html*/ `
+        <h3 class="warning-banner-title">Twitch ads are not being blocked!</h3>
+        No proxies have been added to the extension. Add proxies in the
+        <a href="../options/page.html" target="_blank" class="warning-banner-link">options page</a>.
+      `;
+      warningBannerElement.style.display = "block";
       break;
   }
 }
@@ -258,6 +257,11 @@ whitelistToggleElement.addEventListener("change", e => {
 });
 
 copyProxyCredentialsButtonElement.addEventListener("click", async e => {
+  const copyProxyCredentialsButtonDescriptionElement =
+    copyProxyCredentialsButtonElement.querySelector(
+      ".list-item-description"
+    ) as HTMLParagraphElement;
+
   try {
     const proxies = store.state.optimizedProxiesEnabled
       ? store.state.optimizedProxies
@@ -305,6 +309,10 @@ copyProxyCredentialsButtonElement.addEventListener("click", async e => {
 });
 
 copyDebugInfoButtonElement.addEventListener("click", async e => {
+  const copyDebugInfoButtonDescriptionElement =
+    copyDebugInfoButtonElement.querySelector(
+      ".list-item-description"
+    ) as HTMLParagraphElement;
   copyDebugInfoButtonDescriptionElement.textContent =
     "Generating debug info...";
 

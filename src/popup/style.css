@@ -2,7 +2,9 @@
   --background: #151619;
   --background-secondary: #202127;
   --background-tertiary: #292b32;
-  --popup-width: 310px;
+  --popup-width: 300px;
+  --popup-margin: 18px;
+  --popup-gap: 12px;
 
   --font-family: "Inter", "Roobert", "Helvetica Neue", Helvetica, Arial,
     sans-serif;
@@ -15,7 +17,7 @@
   --border-radius: 8px;
 
   --warning-color: #faa61a;
-  --warning-background-color: #faa61a4d;
+  --warning-background-color: #faa61a33;
   --success-color: #43b581;
   --idle-color: #777;
   --error-color: #f04747;
@@ -38,18 +40,37 @@ body {
   font-family: var(--font-family);
 }
 
+header {
+  margin: var(--popup-margin) 0 var(--popup-gap) 0;
+  text-align: center;
+}
+
+header .logo {
+  height: 40px;
+}
+
 main {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: start;
-  padding: 20px;
-  gap: 15px;
+  margin: 0 var(--popup-margin);
+  gap: var(--popup-gap);
 }
 
 main > * {
   width: 100%;
   margin: 0;
+}
+
+footer {
+  margin: var(--popup-gap) 0 var(--popup-margin) 0;
+  text-align: center;
+}
+
+footer .wiki-notice {
+  color: #999;
+  font-size: 8pt;
 }
 
 a,
@@ -67,7 +88,7 @@ a:visited:hover {
 .warning-banner {
   display: none;
   margin: 3px 3px 0 3px;
-  padding: 15px;
+  padding: 12px;
   border: 1px solid var(--warning-color);
   border-radius: 5px;
   background-color: var(--warning-background-color);
@@ -93,16 +114,6 @@ a:visited:hover {
   opacity: 0.8;
 }
 
-/* Logo */
-
-.logo-wrapper {
-  text-align: center;
-}
-
-.logo-wrapper > img {
-  height: 40px;
-}
-
 /* Stream status */
 
 #stream-status {
@@ -121,6 +132,7 @@ a:visited:hover {
     "bottom-left bottom-right";
   column-gap: 10px;
   padding: 15px;
+  overflow: hidden;
   border-top-right-radius: var(--border-radius);
   border-top-left-radius: var(--border-radius);
   background-color: var(--background-secondary);
@@ -135,6 +147,7 @@ a:visited:hover {
   cursor: help;
 }
 #stream-status #proxied #proxied-dot-shadow {
+  z-index: 1; /* Fixes visual bug when proxied dot is pulsing */
   position: absolute;
   top: 50%;
   left: 50%;
@@ -146,7 +159,7 @@ a:visited:hover {
   opacity: 0;
 }
 #stream-status #proxied #proxied-dot {
-  z-index: 1;
+  z-index: 2;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -181,13 +194,18 @@ a:visited:hover {
 #stream-status #channel-name {
   grid-area: top-right;
   margin: 0;
+  overflow: hidden;
   font-size: 11pt;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* Proxy status reason */
 #stream-status #reason {
   grid-area: middle-right;
   margin: 4px 0 0 0;
+  overflow: hidden;
   font-size: 9pt;
+  overflow-wrap: anywhere;
   opacity: 0.8;
 }
 /* Proxy status info */
@@ -202,12 +220,11 @@ a:visited:hover {
 }
 #stream-status .info {
   font-size: 7pt;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   opacity: 0.7;
 }
 /* Whitelist status */
 #whitelist-status {
-  z-index: -1; /* Fixes visual bug when proxied dot is pulsing */
   position: relative;
   height: 40px;
   border-top: 1px solid #3d4042;
@@ -272,7 +289,7 @@ a:visited:hover {
   color: var(--whitelisted-color);
 }
 
-/* Links */
+/* Lists */
 
 .list {
   margin: 0;
@@ -327,20 +344,21 @@ a:visited:hover {
   margin-right: 10px;
 }
 
-.list .list-item .list-item-title {
-  margin: 0 0 2px 0;
-  font-weight: bold;
-  font-size: 11pt;
+.list .list-item .list-item-text {
+  overflow: hidden;
 }
 
-.list .list-item .list-item-description {
+.list .list-item .list-item-text .list-item-title {
+  margin: 0 0 2px 0;
+  overflow: hidden;
+  font-weight: bold;
+  font-size: 11pt;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list .list-item .list-item-text .list-item-description {
   margin: 0;
   font-size: 8pt;
   opacity: 0.8;
-}
-
-.question-info {
-  color: #999;
-  font-size: 8pt;
-  text-align: center;
 }

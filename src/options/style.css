@@ -77,7 +77,7 @@ header > .title-container {
   justify-content: flex-start;
   gap: 1rem;
 }
-header > .title-container > .icon {
+header > .title-container > .logo {
   width: var(--logo-size);
   height: var(--logo-size);
 }

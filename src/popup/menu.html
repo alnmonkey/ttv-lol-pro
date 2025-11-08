@@ -2,28 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Popup - TTV LOL PRO</title>
     <link rel="stylesheet" href="../common/css/boilerplate.css" />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <!-- Warning banners -->
-    <div id="warning-banner-no-proxies" class="warning-banner">
-      <h3 class="warning-banner-title">Twitch ads are not being blocked!</h3>
-      No proxies have been added to the extension. Add proxies in the
-      <a href="../options/page.html" target="_blank" class="warning-banner-link"
-        >options page</a
-      >.
-    </div>
+    <!-- Warning banner -->
+    <div id="warning-banner" class="warning-banner"></div>
+
+    <!-- Logo -->
+    <header>
+      <img
+        src="../common/images/brand/icon.png"
+        alt="TTV LOL PRO logo"
+        class="logo"
+      />
+    </header>
 
     <main>
-      <!-- Logo -->
-      <div class="logo-wrapper">
-        <img src="../common/images/brand/icon.png" alt="TTV LOL PRO" />
-      </div>
-
       <!-- Stream status -->
       <div id="stream-status">
         <div id="proxy-status">
@@ -52,6 +49,7 @@
                 fill="currentColor"
                 class="bi bi-plus"
                 viewBox="0 0 16 16"
+                aria-hidden="true"
               >
                 <path
                   d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"
@@ -66,6 +64,7 @@
                 fill="currentColor"
                 class="bi bi-check-lg"
                 viewBox="0 0 16 16"
+                aria-hidden="true"
               >
                 <path
                   d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"
@@ -90,6 +89,7 @@
                 fill="currentColor"
                 class="bi bi-gear-fill"
                 viewBox="0 0 16 16"
+                aria-hidden="true"
               >
                 <path
                   d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"
@@ -119,6 +119,7 @@
                 fill="currentColor"
                 class="bi bi-suit-heart-fill"
                 viewBox="0 0 16 16"
+                aria-hidden="true"
               >
                 <path
                   d="M4 1c2.21 0 4 1.755 4 3.92C8 2.755 9.79 1 12 1s4 1.755 4 3.92c0 3.263-3.234 4.414-7.608 9.608a.513.513 0 0 1-.784 0C3.234 9.334 0 8.183 0 4.92 0 2.755 1.79 1 4 1z"
@@ -148,6 +149,7 @@
                 fill="currentColor"
                 class="bi bi-suit-heart-fill"
                 viewBox="0 0 16 16"
+                aria-hidden="true"
               >
                 <path
                   d="M4 1c2.21 0 4 1.755 4 3.92C8 2.755 9.79 1 12 1s4 1.755 4 3.92c0 3.263-3.234 4.414-7.608 9.608a.513.513 0 0 1-.784 0C3.234 9.334 0 8.183 0 4.92 0 2.755 1.79 1 4 1z"
@@ -177,6 +179,7 @@
                 fill="currentColor"
                 class="bi bi-discord"
                 viewBox="0 0 16 16"
+                aria-hidden="true"
               >
                 <path
                   d="M13.545 2.907a13.227 13.227 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.19 12.19 0 0 0-3.658 0 8.258 8.258 0 0 0-.412-.833.051.051 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.041.041 0 0 0-.021.018C.356 6.024-.213 9.047.066 12.032c.001.014.01.028.021.037a13.276 13.276 0 0 0 3.995 2.02.05.05 0 0 0 .056-.019c.308-.42.582-.863.818-1.329a.05.05 0 0 0-.01-.059.051.051 0 0 0-.018-.011 8.875 8.875 0 0 1-1.248-.595.05.05 0 0 1-.02-.066.051.051 0 0 1 .015-.019c.084-.063.168-.129.248-.195a.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.052.052 0 0 1 .053.007c.08.066.164.132.248.195a.051.051 0 0 1-.004.085 8.254 8.254 0 0 1-1.249.594.05.05 0 0 0-.03.03.052.052 0 0 0 .003.041c.24.465.515.909.817 1.329a.05.05 0 0 0 .056.019 13.235 13.235 0 0 0 4.001-2.02.049.049 0 0 0 .021-.037c.334-3.451-.559-6.449-2.366-9.106a.034.034 0 0 0-.02-.019Zm-8.198 7.307c-.789 0-1.438-.724-1.438-1.612 0-.889.637-1.613 1.438-1.613.807 0 1.45.73 1.438 1.613 0 .888-.637 1.612-1.438 1.612Zm5.316 0c-.788 0-1.438-.724-1.438-1.612 0-.889.637-1.613 1.438-1.613.807 0 1.451.73 1.438 1.613 0 .888-.631 1.612-1.438 1.612Z"
@@ -195,7 +198,8 @@
 
       <!-- Buttons -->
       <ol class="list">
-        <li>
+        <li style="display: none">
+          <!-- `display: none` fixes popup bottom gap on Firefox -->
           <button id="copy-proxy-credentials-button" class="list-item">
             <div class="list-item-icon">
               <!-- https://icons.getbootstrap.com/icons/key-fill/ -->
@@ -206,6 +210,7 @@
                 fill="currentColor"
                 class="bi bi-key-fill"
                 viewBox="0 0 16 16"
+                aria-hidden="true"
               >
                 <path
                   d="M3.5 11.5a3.5 3.5 0 1 1 3.163-5H14L15.5 8 14 9.5l-1-1-1 1-1-1-1 1-1-1-1 1H6.663a3.5 3.5 0 0 1-3.163 2M2.5 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2"
@@ -214,10 +219,7 @@
             </div>
             <div class="list-item-text">
               <h3 class="list-item-title">Copy proxy credentials</h3>
-              <p
-                id="copy-proxy-credentials-button-description"
-                class="list-item-description"
-              >
+              <p class="list-item-description">
                 Copy proxy credentials to clipboard.
               </p>
             </div>
@@ -234,6 +236,7 @@
                 fill="currentColor"
                 class="bi bi-clipboard2-pulse-fill"
                 viewBox="0 0 16 16"
+                aria-hidden="true"
               >
                 <path
                   d="M10 .5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5.5.5 0 0 1-.5.5.5.5 0 0 0-.5.5V2a.5.5 0 0 0 .5.5h5A.5.5 0 0 0 11 2v-.5a.5.5 0 0 0-.5-.5.5.5 0 0 1-.5-.5Z"
@@ -245,23 +248,20 @@
             </div>
             <div class="list-item-text">
               <h3 class="list-item-title">Copy debug info</h3>
-              <p
-                id="copy-debug-info-button-description"
-                class="list-item-description"
-              >
-                Copy debug info to clipboard.
-              </p>
+              <p class="list-item-description">Copy debug info to clipboard.</p>
             </div>
           </button>
         </li>
       </ol>
+    </main>
 
-      <small class="question-info">
+    <footer>
+      <small class="wiki-notice">
         Any questions? Please read the
         <a href="https://wiki.ttvlolpro.com/" target="_blank">wiki</a>
         first.
       </small>
-    </main>
+    </footer>
 
     <script type="module" src="./popup.ts"></script>
   </body>

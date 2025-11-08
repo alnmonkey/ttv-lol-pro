@@ -117,7 +117,7 @@ header {
   background-color: var(--container-background-color);
   text-align: center;
 }
-header .icon {
+header .logo {
   width: var(--logo-size);
   height: var(--logo-size);
   margin: 0;
