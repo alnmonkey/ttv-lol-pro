@@ -126,6 +126,7 @@ function setProxyStatus(
   } else if (
     !status.proxied &&
     status.proxyHost &&
+    !status.reason &&
     status.stats &&
     status.stats.proxied > 0 &&
     store.state.optimizedProxiesEnabled &&

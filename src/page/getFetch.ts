@@ -648,11 +648,11 @@ export default function getFetch(pageState: PageState): typeof fetch {
               }
               if (shouldCancelRequest) cancelRequest();
             } else if (manifest.consecutiveAdResponses === 2) {
-              logger.error("Exceeded maximum ad replacement attempts.");
+              logger.error("Maximum ad replacement attempts exceeded.");
               pageState.sendMessageToContentScript({
                 type: MessageType.ExtensionError,
                 errorMessage:
-                  "Failed to replace ad: Exceeded maximum ad replacement attempts.",
+                  "Failed to replace ad: Maximum replacement attempts exceeded.",
               });
             }
             // Any request reaching here has either not been replaced (error)
@@ -921,7 +921,7 @@ async function flagRequestAndFetch(
     if (isLocked) {
       logger.debug(`🔒 Waiting for '${requestType}'... (${request.url})`);
     }
-    let response!: Response;
+    let response: Response;
     await mutex.runExclusive(async () => {
       if (isLocked) {
         logger.debug(`🔓 Done waiting for '${requestType}' (${request.url})`);
@@ -930,7 +930,7 @@ async function flagRequestAndFetch(
       response = await doWork();
       logger.debug(`🔓 Unlocked '${requestType}' (${request.url})`);
     });
-    return response;
+    return response!;
   } else {
     return await doWork();
   }

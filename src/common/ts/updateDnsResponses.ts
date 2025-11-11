@@ -5,6 +5,7 @@ import { getProxyInfoFromUrl } from "./proxyInfo";
 
 const DNS_API = "https://cloudflare-dns.com/dns-query";
 const MIN_TTL = 300;
+const INFINITE_TTL = -1;
 
 export default async function updateDnsResponses() {
   const proxies = Array.from(
@@ -23,7 +24,7 @@ export default async function updateDnsResponses() {
       existingIndex !== -1 ? store.state.dnsResponses[existingIndex] : null;
     const isDnsResponseValid =
       existing &&
-      (existing.ttl === -1 ||
+      (existing.ttl === INFINITE_TTL ||
         Date.now() - existing.timestamp < existing.ttl * 1000);
     if (isDnsResponseValid) {
       continue;
@@ -36,7 +37,7 @@ export default async function updateDnsResponses() {
         host,
         ips: [host],
         timestamp: Date.now(),
-        ttl: -1,
+        ttl: INFINITE_TTL,
       });
       continue;
     }
