@@ -14,6 +14,6 @@ Users who opt to use third-party proxies should be aware that these services ope
 
 ## Local Ad-Bypass Logging
 
-TTV LOL PRO logs instances where ads bypass the ad-blocking mechanism. These logs are stored locally on the user's device and can be viewed, disabled, or cleared through the extension’s settings. Users may choose to send these logs for analysis, with no personally identifiable information collected. To minimize storage, log entries are automatically deleted after seven days.
+TTV LOL PRO logs instances where ads bypass the ad-blocking mechanism. These logs are stored locally on the user's device and can be viewed, disabled, or cleared through the extension’s settings. Users may choose to send these logs to the TTV LOL PRO developers for analysis. To minimize storage, log entries are automatically deleted after seven days.
 
 [^1]: HTTP, HTTPS, SOCKS4, and SOCKS5

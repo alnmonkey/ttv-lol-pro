@@ -191,7 +191,7 @@ async function updateStreamStatus(
     } catch {}
     setStreamStatus(channelName, {
       proxied: false,
-      proxyHost: streamStatus?.proxyHost ? streamStatus.proxyHost : undefined,
+      proxyHost: streamStatus?.proxyHost,
       proxyCountry: streamStatus?.proxyCountry,
       reason,
       stats,

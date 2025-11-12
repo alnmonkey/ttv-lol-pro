@@ -9,9 +9,7 @@ declare module "m3u8-parser" {
     playlistType?: string;
     custom?: {};
     playlists?: {
-      attributes: {
-        [key: string]: unknown;
-      };
+      attributes: { [key: string]: unknown };
       uri: string;
       timeline: number;
     }[];
