@@ -272,6 +272,10 @@ input[type="radio"]:not(:checked) ~ .store-list {
 .store-list > li > input {
   width: 100%;
 }
+.store-list > li:hover > input,
+.store-list > li:focus-within > input {
+  padding-right: 2.75rem;
+}
 .store-list > li > .move-buttons-container {
   display: none;
   z-index: 1;
@@ -287,10 +291,6 @@ input[type="radio"]:not(:checked) ~ .store-list {
 .store-list > li:hover > .move-buttons-container,
 .store-list > li:focus-within > .move-buttons-container {
   display: flex;
-}
-.store-list > li:hover > input,
-.store-list > li:focus-within > input {
-  padding-right: 2.75rem;
 }
 .store-list > li > .move-buttons-container > button {
   margin: 0;

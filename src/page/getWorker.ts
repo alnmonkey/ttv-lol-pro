@@ -50,8 +50,9 @@ export default function getWorker(pageState: PageState): typeof Worker | null {
       // ---------------------------------------
       // 🦊 Attention Firefox Addon Reviewer 🦊
       // ---------------------------------------
-      // Please note that this does NOT involve remote code execution. The injected script is bundled
-      // with the extension. Additionally, there is no custom Content Security Policy (CSP) in use.
+      // Please note that this does NOT involve remote code execution.
+      // The injected script is bundled with the extension.
+      // Additionally, there is no custom Content Security Policy (CSP) in use.
       const newScript = `
       var getParams = () => '${JSON.stringify(pageState.params)}';
       try {

@@ -262,6 +262,8 @@ copyProxyCredentialsButtonElement.addEventListener("click", async e => {
     copyProxyCredentialsButtonElement.querySelector(
       ".list-item-description"
     ) as HTMLParagraphElement;
+  copyProxyCredentialsButtonDescriptionElement.textContent =
+    "Copying proxy credentials...";
 
   try {
     const proxies = store.state.optimizedProxiesEnabled

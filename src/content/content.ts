@@ -40,8 +40,9 @@ function injectPageScript() {
   // ---------------------------------------
   // 🦊 Attention Firefox Addon Reviewer 🦊
   // ---------------------------------------
-  // Please note that this does NOT involve remote code execution. The injected scripts are bundled
-  // with the extension. The `url:` imports above are used to get the runtime URLs of the respective scripts.
+  // Please note that this does NOT involve remote code execution.
+  // The injected scripts are bundled with the extension.
+  // The `url:` imports above are used to get the runtime URLs of the respective scripts.
   // Additionally, there is no custom Content Security Policy (CSP) in use.
   (document.head || document.documentElement).prepend(script); // Note: Despite what the TS types say, `document.head` can be `null`.
 }
@@ -135,7 +136,7 @@ async function onPageMessage(event: MessageEvent) {
     try {
       browser.runtime.sendMessage(message);
     } catch (error) {
-      logger.error("Failed to send EnableFullMode message.", error);
+      logger.error("Failed to send EnableFullMode message:", error);
     }
   }
   // ---
@@ -143,7 +144,7 @@ async function onPageMessage(event: MessageEvent) {
     try {
       browser.runtime.sendMessage(message);
     } catch (error) {
-      logger.error("Failed to send DisableFullMode message.", error);
+      logger.error("Failed to send DisableFullMode message:", error);
     }
   }
   // ---
@@ -151,7 +152,7 @@ async function onPageMessage(event: MessageEvent) {
     try {
       browser.runtime.sendMessage(message);
     } catch (error) {
-      logger.error("Failed to send UsherResponse message.", error);
+      logger.error("Failed to send UsherResponse message:", error);
     }
   }
   // ---

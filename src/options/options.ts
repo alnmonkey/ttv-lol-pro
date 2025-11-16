@@ -262,18 +262,18 @@ function updateUI() {
       inputElement.checked = true;
     }
   });
-  $$(".block-ads").forEach(el => el.setAttribute("hidden", "true"));
-  $$(".unlock-best-quality").forEach(el => el.setAttribute("hidden", "true"));
-  $$(".expert-mode").forEach(el => el.setAttribute("hidden", "true"));
+  $$(".block-ads").forEach(e => e.setAttribute("hidden", "true"));
+  $$(".unlock-best-quality").forEach(e => e.setAttribute("hidden", "true"));
+  $$(".expert-mode").forEach(e => e.setAttribute("hidden", "true"));
   switch (store.state.userExperienceMode) {
     case "blockAds":
-      $$(".block-ads").forEach(el => el.removeAttribute("hidden"));
+      $$(".block-ads").forEach(e => e.removeAttribute("hidden"));
       break;
     case "unlockBestQuality":
-      $$(".unlock-best-quality").forEach(el => el.removeAttribute("hidden"));
+      $$(".unlock-best-quality").forEach(e => e.removeAttribute("hidden"));
       break;
     case "expertMode":
-      $$(".expert-mode").forEach(el => el.removeAttribute("hidden"));
+      $$(".expert-mode").forEach(e => e.removeAttribute("hidden"));
       break;
   }
   // Passport
@@ -851,8 +851,6 @@ resetButtonElement.addEventListener("click", () => {
   window.location.reload(); // Reload page to update UI.
 });
 
-// Troubleshooting
-
 viewStatusOfProxiesButtonElement.addEventListener("click", () => {
   location.href = "https://status.perfprod.com/";
 });
@@ -984,7 +982,7 @@ generateTwitchTabsReportButtonElement.addEventListener("click", async () => {
   );
 });
 
-// Expert mode activation by Konami code
+// Konami code to show expert mode option
 // From https://stackoverflow.com/a/31627191
 
 const konamiCode = [
