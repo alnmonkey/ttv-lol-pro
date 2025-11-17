@@ -964,7 +964,7 @@ function getHighlightOfAdUrl(url: string | undefined): string | undefined {
   if (!chosen) {
     chosen = parts.reduce((a, b) => (a.length <= b.length ? a : b));
   }
-  const maxLength = 60;
+  const maxLength = 50;
   if (chosen.length <= maxLength) return chosen;
   return `${chosen.slice(0, maxLength - 1)}…`;
 }
