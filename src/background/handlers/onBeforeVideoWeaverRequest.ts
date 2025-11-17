@@ -35,8 +35,8 @@ export default function onBeforeVideoWeaverRequest(
 
     const channelName = findChannelFromVideoWeaverUrl(details.url);
     const isPurpleScreen =
-      textLower.includes("https://example.com") &&
-      textLower.includes("https://help.twitch.tv/");
+      /https?:\/\/([a-z0-9-]+\.)*example\.com/i.test(textLower) &&
+      /https?:\/\/([a-z0-9-]+\.)*twitch\.tv/i.test(textLower);
     const proxy =
       details.proxyInfo && details.proxyInfo.type !== "direct"
         ? getUrlFromProxyInfo(details.proxyInfo)

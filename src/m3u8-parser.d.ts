@@ -4,21 +4,12 @@ declare module "m3u8-parser" {
     allowCache: boolean;
     endList?: boolean;
     mediaSequence?: number;
-    dateRanges: [];
+    dateRanges: { [key: string]: unknown }[];
     discontinuitySequence?: number;
     playlistType?: string;
     custom?: {};
     playlists?: {
-      attributes: {
-        "FRAME-RATE": number;
-        VIDEO: string;
-        CODECS: string;
-        RESOLUTION: {
-          width: number;
-          height: number;
-        };
-        BANDWIDTH: number;
-      };
+      attributes: { [key: string]: unknown };
       uri: string;
       timeline: number;
     }[];
