@@ -2,7 +2,9 @@ import * as m3u8Parser from "m3u8-parser";
 import acceptFlag from "../common/ts/acceptFlag";
 import findChannelFromTwitchTvUrl from "../common/ts/findChannelFromTwitchTvUrl";
 import findChannelFromUsherUrl from "../common/ts/findChannelFromUsherUrl";
-import generateRandomString from "../common/ts/generateRandomString";
+import generateRandomString, {
+  Charset,
+} from "../common/ts/generateRandomString";
 import getHostFromUrl from "../common/ts/getHostFromUrl";
 import isRequestTypeProxied from "../common/ts/isRequestTypeProxied";
 import Logger from "../common/ts/Logger";
@@ -319,6 +321,13 @@ export default function getFetch(pageState: PageState): typeof fetch {
           ? pageState.state.customPassport
           : null,
       });
+      const shouldOverrideRequest = pageState.state?.anonymousMode === true;
+      if (shouldOverrideRequest) {
+        logger.log("Overriding Usher request…");
+        request = new Request(anonymizeUsherUrl(url), {
+          ...init,
+        });
+      }
       if (shouldFlagRequest) {
         logger.log("Flagging Usher request…");
         isFlaggedRequest = true;
@@ -441,7 +450,7 @@ export default function getFetch(pageState: PageState): typeof fetch {
           const mutex = pageState.requestTypeMutexes[requestType];
           const isLocked = mutex.isLocked();
           if (isLocked) {
-            logger.debug(`🔒 Waiting for '${requestType}'... (${url})`);
+            logger.debug(`🔒 Waiting for '${requestType}'… (${url})`);
           }
           await mutex.waitForUnlock();
           if (isLocked) {
@@ -846,6 +855,20 @@ function wasChannelSubscriber(
   );
 }
 
+function anonymizeUsherUrl(usherUrl: string): string {
+  try {
+    const url = new URL(usherUrl);
+    url.searchParams.set("p", Math.floor(Math.random() * 10000000).toString());
+    url.searchParams.set(
+      "play_session_id",
+      generateRandomString(32, Charset.ALPHANUMERIC_LOWERCASE)
+    );
+    return url.toString();
+  } catch {
+    return usherUrl;
+  }
+}
+
 async function _flagRequest(
   request: Request,
   requestType: ProxyRequestType,
@@ -919,7 +942,7 @@ async function flagRequestAndFetch(
     const mutex = pageState.requestTypeMutexes[requestType];
     const isLocked = mutex.isLocked();
     if (isLocked) {
-      logger.debug(`🔒 Waiting for '${requestType}'... (${request.url})`);
+      logger.debug(`🔒 Waiting for '${requestType}'… (${request.url})`);
     }
     let response: Response;
     await mutex.runExclusive(async () => {
@@ -1001,6 +1024,7 @@ function getDefaultPlaybackAccessTokenRequest(
         : "undefined",
     ],
     ["Client-ID", "kimne78kx3ncx6brgo4mv6wki5h1ko"],
+    ["Content-Type", "text/plain; charset=UTF-8"],
     ["Device-ID", generateRandomString(32)],
   ]);
 
@@ -1010,13 +1034,14 @@ function getDefaultPlaybackAccessTokenRequest(
     body: JSON.stringify({
       operationName: "PlaybackAccessToken_Template",
       query:
-        'query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!) {  streamPlaybackAccessToken(channelName: $login, params: {platform: "web", playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isLive) {    value    signature   authorization { isForbidden forbiddenReasonCode }   __typename  }  videoPlaybackAccessToken(id: $vodID, params: {platform: "web", playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isVod) {    value    signature   __typename  }}',
+        'query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!, $platform: String!) {  streamPlaybackAccessToken(channelName: $login, params: {platform: $platform, playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isLive) {    value    signature   authorization { isForbidden forbiddenReasonCode }   __typename  }  videoPlaybackAccessToken(id: $vodID, params: {platform: $platform, playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isVod) {    value    signature   __typename  }}',
       variables: {
         isLive: !isVod,
         login: isVod ? "" : channelName,
         isVod: isVod,
         vodID: isVod ? channelName : "",
         playerType: "site",
+        platform: "web",
       },
     }),
   });
@@ -1079,11 +1104,9 @@ function getReplacementUsherUrl(
   if (cachedUsherRequestUrl == null) return null; // Very unlikely.
   try {
     const newUsherUrl = new URL(cachedUsherRequestUrl);
-    newUsherUrl.searchParams.delete("acmb");
-    newUsherUrl.searchParams.set("play_session_id", generateRandomString(32));
     newUsherUrl.searchParams.set("sig", playbackAccessToken.signature);
     newUsherUrl.searchParams.set("token", playbackAccessToken.value);
-    return newUsherUrl.toString();
+    return anonymizeUsherUrl(newUsherUrl.toString()); // Always anonymize, regardless of anonymous mode.
   } catch {
     return null;
   }
