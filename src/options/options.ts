@@ -315,7 +315,7 @@ function updatePassportUI() {
   let usageScore = 0;
   let showPassportLevelWarning = false;
 
-  const unflaggedRequestParams = {
+  const paramsUnflagged = {
     isChromium: isChromium,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
     passportLevel: store.state.passportLevel,
@@ -325,19 +325,19 @@ function updatePassportUI() {
     fullModeEnabled: false,
     isFlagged: false,
   };
-  const flaggedRequestParams = {
-    ...unflaggedRequestParams,
+  const paramsFlagged = {
+    ...paramsUnflagged,
     fullModeEnabled: true,
     isFlagged: true,
   };
   // Passport
-  if (isRequestTypeProxied(ProxyRequestType.Passport, unflaggedRequestParams)) {
+  if (isRequestTypeProxied(ProxyRequestType.Passport, paramsUnflagged)) {
     passportLevelProxyUsagePassportElement.textContent = "All";
   } else {
     passportLevelProxyUsagePassportElement.textContent = "None";
   }
   // Usher
-  if (isRequestTypeProxied(ProxyRequestType.Usher, flaggedRequestParams)) {
+  if (isRequestTypeProxied(ProxyRequestType.Usher, paramsFlagged)) {
     passportLevelProxyUsageUsherElement.textContent = "All";
   } else {
     passportLevelProxyUsageUsherElement.textContent = "None";
@@ -345,11 +345,11 @@ function updatePassportUI() {
   // Video Weaver
   const flaggedVideoWeaverProxied = isRequestTypeProxied(
     ProxyRequestType.VideoWeaver,
-    flaggedRequestParams
+    paramsFlagged
   );
   const unflaggedVideoWeaverProxied = isRequestTypeProxied(
     ProxyRequestType.VideoWeaver,
-    unflaggedRequestParams
+    paramsUnflagged
   );
   if (flaggedVideoWeaverProxied && unflaggedVideoWeaverProxied) {
     passportLevelProxyUsageVideoWeaverElement.textContent = "All";
@@ -360,32 +360,25 @@ function updatePassportUI() {
     passportLevelProxyUsageVideoWeaverElement.textContent = "None";
   }
   // GraphQL
-  if (
-    isRequestTypeProxied(ProxyRequestType.GraphQLAll, unflaggedRequestParams)
-  ) {
+  if (isRequestTypeProxied(ProxyRequestType.GraphQLAll, paramsUnflagged)) {
     passportLevelProxyUsageGqlElement.textContent = "All";
     usageScore += 1;
     showPassportLevelWarning = true;
   } else if (
-    isRequestTypeProxied(
-      ProxyRequestType.GraphQLIntegrity,
-      unflaggedRequestParams
-    )
+    isRequestTypeProxied(ProxyRequestType.GraphQLIntegrity, paramsUnflagged)
   ) {
     passportLevelProxyUsageGqlElement.textContent = "Some";
     usageScore += 1;
     showPassportLevelWarning = true;
   } else if (
-    isRequestTypeProxied(ProxyRequestType.GraphQLToken, unflaggedRequestParams)
+    isRequestTypeProxied(ProxyRequestType.GraphQLToken, paramsUnflagged)
   ) {
     passportLevelProxyUsageGqlElement.textContent = "Few";
   } else {
     passportLevelProxyUsageGqlElement.textContent = "None";
   }
   // WWW
-  if (
-    isRequestTypeProxied(ProxyRequestType.TwitchWebpage, unflaggedRequestParams)
-  ) {
+  if (isRequestTypeProxied(ProxyRequestType.TwitchWebpage, paramsUnflagged)) {
     passportLevelProxyUsageWwwElement.textContent = "All";
   } else {
     passportLevelProxyUsageWwwElement.textContent = "None";
@@ -415,7 +408,7 @@ function updatePassportUI() {
     store.state.optimizedProxiesEnabled;
   const disableTokenAndIntegrity =
     !customPassportGraphQLAllElement.disabled &&
-    customPassportGraphQLAllElement.checked;
+    (isChromium || customPassportGraphQLAllElement.checked);
   customPassportGraphQLTokenElement.disabled = disableTokenAndIntegrity;
   customPassportGraphQLIntegrityElement.disabled = disableTokenAndIntegrity;
 }

@@ -4,14 +4,8 @@ export default function isRequestTypeProxied(
   type: ProxyRequestType,
   params: ProxyRequestParams
 ): boolean {
-  // TODO: Align passport level logic between Chromium and Firefox.
-
   if (type === ProxyRequestType.Passport) {
-    if (params.isChromium && !params.optimizedProxiesEnabled) {
-      return params.customPassport?.passport ?? params.passportLevel >= 0;
-    } else {
-      return params.customPassport?.passport ?? params.passportLevel >= 1;
-    }
+    return params.customPassport?.passport ?? params.passportLevel >= 1;
   }
 
   if (type === ProxyRequestType.Usher) {
@@ -60,9 +54,13 @@ export default function isRequestTypeProxied(
 
   if (type === ProxyRequestType.GraphQLAll) {
     if (!params.optimizedProxiesEnabled) {
+      const customPassportSomeGraphQL =
+        params.customPassport?.graphQLToken ||
+        params.customPassport?.graphQLIntegrity ||
+        params.customPassport?.graphQLAll;
       if (
         params.isChromium &&
-        (params.customPassport?.graphQLAll ?? params.passportLevel >= 1)
+        (customPassportSomeGraphQL ?? params.passportLevel >= 1)
       ) {
         return true;
       }
