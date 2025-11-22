@@ -342,7 +342,9 @@ copyDebugInfoButtonElement.addEventListener("click", async e => {
 
     const debugInfo = [
       `**Debug Info**\n`,
-      `Extension: ${extensionInfo.name} v${extensionInfo.version} (${extensionInfo.installType})\n`,
+      `Extension: ${extensionInfo.name} ${extensionInfo.version}${
+        process.env.BETA ? " Beta " + process.env.BETA : ""
+      } (${extensionInfo.installType})\n`,
       `Browser: ${userAgentParser.getBrowserName()} ${userAgentParser.getBrowserVersion()} (${userAgentParser.getOSName()} ${userAgentParser.getOSVersion()})\n`,
       `Options:\n`,
       `- User experience: ${store.state.userExperienceMode}\n`,

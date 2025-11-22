@@ -246,7 +246,7 @@ function main() {
   // Footer
   versionElement.textContent = `Version ${
     browser.runtime.getManifest().version
-  }`;
+  }${process.env.BETA ? " Beta " + process.env.BETA : ""}`;
   // Main
   updateUI(); // Load values from store into the UI.
   mainElement.style.display = "block";
@@ -865,7 +865,9 @@ generateTwitchTabsReportButtonElement.addEventListener("click", async () => {
 
   const extensionInfo = await browser.management.getSelf();
   const userAgentParser = Bowser.getParser(window.navigator.userAgent);
-  report += `Extension: ${extensionInfo.name} v${extensionInfo.version} (${extensionInfo.installType})\n`;
+  report += `Extension: ${extensionInfo.name} ${extensionInfo.version}${
+    process.env.BETA ? " Beta " + process.env.BETA : ""
+  } (${extensionInfo.installType})\n`;
   report += `Browser: ${userAgentParser.getBrowserName()} ${userAgentParser.getBrowserVersion()} (${userAgentParser.getOSName()} ${userAgentParser.getOSVersion()})\n\n`;
 
   const openedTabs = await browser.tabs.query({
