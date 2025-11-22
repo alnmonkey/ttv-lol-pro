@@ -29,6 +29,12 @@
       "matches": ["https://www.twitch.tv/*", "https://m.twitch.tv/*"],
       "js": ["content/content.ts"],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["https://www.twitch.tv/*", "https://m.twitch.tv/*"],
+      "js": ["page/page.ts"],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ],
   "icons": {
@@ -51,6 +57,7 @@
     "https://*.ttvnw.net/*",
     "https://*.twitch.tv/*"
   ],
+  "minimum_chrome_version": "111",
   "web_accessible_resources": [
     {
       "resources": ["setup/page.html"],

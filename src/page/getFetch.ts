@@ -322,6 +322,8 @@ export default function getFetch(pageState: PageState): typeof fetch {
           : null,
       });
       const shouldOverrideRequest = pageState.state?.anonymousMode === true;
+      // TODO: Check if the channel matches the one in the token (token reuse).
+      // If not, should get default token for that channel.
       if (shouldOverrideRequest) {
         logger.log("Overriding Usher request…");
         request = new Request(anonymizeUsherUrl(url), {
