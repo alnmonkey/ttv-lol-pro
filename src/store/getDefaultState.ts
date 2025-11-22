@@ -22,11 +22,9 @@ export default function getDefaultState() {
     },
     customPassportEnabled: false,
     dnsResponses: [],
-    normalProxies: [],
+    normalProxies: getDefaultNormalProxies(),
     openedTwitchTabs: [],
-    optimizedProxies: isChromium
-      ? ["chromium.api.cdn-perfprod.com:2023"]
-      : ["firefox.api.cdn-perfprod.com:2023"],
+    optimizedProxies: getDefaultOptimizedProxies(),
     optimizedProxiesEnabled: true,
     passportLevel: 0,
     streamStatuses: {},
@@ -37,4 +35,36 @@ export default function getDefaultState() {
     whitelistedChannels: [],
   };
   return state;
+}
+
+function getDefaultNormalProxies(): string[] {
+  const normalProxies: string[] = [];
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.DEV_NORMAL_PROXIES
+  ) {
+    normalProxies.unshift(
+      ...process.env.DEV_NORMAL_PROXIES.split(",")
+        .map(s => s.trim())
+        .filter(s => !!s)
+    );
+  }
+  return normalProxies;
+}
+
+function getDefaultOptimizedProxies(): string[] {
+  const optimizedProxies: string[] = isChromium
+    ? ["chromium.api.cdn-perfprod.com:2023"]
+    : ["firefox.api.cdn-perfprod.com:2023"];
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.DEV_OPTIMIZED_PROXIES
+  ) {
+    optimizedProxies.unshift(
+      ...process.env.DEV_OPTIMIZED_PROXIES.split(",")
+        .map(s => s.trim())
+        .filter(s => !!s)
+    );
+  }
+  return optimizedProxies;
 }
