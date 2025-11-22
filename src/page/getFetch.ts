@@ -173,9 +173,19 @@ export default function getFetch(pageState: PageState): typeof fetch {
     graphqlReq: if (host != null && twitchGqlHostRegex.test(host)) {
       requestType = ProxyRequestType.GraphQL;
 
+      const integrityHeader = getHeaderFromMap(headersMap, "Client-Integrity");
+      const isIntegrityRequest = url === "https://gql.twitch.tv/integrity";
+      const isIntegrityHeaderRequest = integrityHeader != null;
+
       //#region GraphQL PlaybackAccessToken requests.
       requestBody ??= await readRequestBody();
       if (requestBody != null && requestBody.includes("PlaybackAccessToken")) {
+        if (requestBody.includes("PrefetchPlaybackAccessToken")) {
+          // FIXME: Split the request in a proxied and non-proxied (whitelisted) sub-request.
+          // Then build a response that merges both sub-responses.
+          cancelRequest();
+        }
+
         // Cache the request headers and body for later use.
         cachedPlaybackTokenRequestHeaders = headersMap;
         cachedPlaybackTokenRequestBody = requestBody;
@@ -201,9 +211,6 @@ export default function getFetch(pageState: PageState): typeof fetch {
           break graphqlReq;
         }
 
-        const isTemplateRequest = requestBody.includes(
-          "PlaybackAccessToken_Template"
-        );
         const areIntegrityRequestsProxied = isRequestTypeProxied(
           ProxyRequestType.GraphQLIntegrity,
           {
@@ -228,10 +235,8 @@ export default function getFetch(pageState: PageState): typeof fetch {
               : null,
           }
         );
-        // "PlaybackAccessToken" requests contain a Client-Integrity header.
-        // Thus, if integrity requests are not proxied, we can't proxy this request.
         let willFailIntegrityCheckIfProxied =
-          !isTemplateRequest && !areIntegrityRequestsProxied;
+          isIntegrityHeaderRequest && !areIntegrityRequestsProxied;
         const shouldOverrideRequest =
           pageState.state?.anonymousMode === true ||
           (shouldFlagRequest && willFailIntegrityCheckIfProxied);
@@ -258,9 +263,6 @@ export default function getFetch(pageState: PageState): typeof fetch {
       //#endregion
 
       //#region GraphQL integrity requests.
-      const integrityHeader = getHeaderFromMap(headersMap, "Client-Integrity");
-      const isIntegrityRequest = url === "https://gql.twitch.tv/integrity";
-      const isIntegrityHeaderRequest = integrityHeader != null;
       if (isIntegrityRequest || isIntegrityHeaderRequest) {
         await waitForStore(pageState);
         const shouldFlagRequest = isRequestTypeProxied(
@@ -322,8 +324,6 @@ export default function getFetch(pageState: PageState): typeof fetch {
           : null,
       });
       const shouldOverrideRequest = pageState.state?.anonymousMode === true;
-      // TODO: Check if the channel matches the one in the token (token reuse).
-      // If not, should get default token for that channel.
       if (shouldOverrideRequest) {
         logger.log("Overriding Usher request…");
         request = new Request(anonymizeUsherUrl(url), {
