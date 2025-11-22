@@ -820,6 +820,7 @@ async function waitForStore(pageState: PageState) {
         pageState.scope,
         {
           type: MessageType.GetStoreState,
+          from: pageState.scope,
         },
         MessageType.GetStoreStateResponse
       );

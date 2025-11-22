@@ -42,7 +42,7 @@ async function sendMessageAndWaitForResponse(
       broadcastChannel.removeEventListener("message", listener);
       reject(
         new Error(
-          `Timed out after ${responseTimeout}ms waiting for message response.`
+          `Timed out after ${responseTimeout}ms waiting for message response (broadcast channel: ${broadcastChannel.name}).`
         )
       );
     }, responseTimeout);

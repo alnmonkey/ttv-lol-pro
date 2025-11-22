@@ -3,6 +3,7 @@ import isChromium from "../common/ts/isChromium";
 import checkForOpenedTwitchTabs from "./handlers/checkForOpenedTwitchTabs";
 import onAuthRequired from "./handlers/onAuthRequired";
 import onBeforeSendHeaders from "./handlers/onBeforeSendHeaders";
+import onBeforeTwitchTvSendHeaders from "./handlers/onBeforeTwitchTvSendHeaders";
 import onContentScriptMessage from "./handlers/onContentScriptMessage";
 import onInstalled from "./handlers/onInstalled";
 import onProxyRequest from "./handlers/onProxyRequest";
@@ -56,6 +57,16 @@ if (isChromium) {
   browser.tabs.onRemoved.addListener(onTabRemoved);
   browser.tabs.onReplaced.addListener(onTabReplaced);
 } else {
+  // Inject page script.
+  browser.webRequest.onBeforeSendHeaders.addListener(
+    onBeforeTwitchTvSendHeaders,
+    {
+      urls: ["https://www.twitch.tv/*", "https://m.twitch.tv/*"],
+      types: ["main_frame"],
+    },
+    ["blocking", "requestHeaders"]
+  );
+
   // Block tracking pixels.
   browser.webRequest.onBeforeRequest.addListener(
     () => ({ cancel: true }),

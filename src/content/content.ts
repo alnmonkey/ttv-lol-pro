@@ -8,6 +8,7 @@ import isChannelWhitelisted from "../common/ts/isChannelWhitelisted";
 import isChromium from "../common/ts/isChromium";
 import Logger from "../common/ts/Logger";
 import { getStreamStatus, setStreamStatus } from "../common/ts/streamStatus";
+import type { PageState } from "../page/types";
 import store from "../store";
 import type { State } from "../store/types";
 import { MessageType } from "../types";
@@ -15,28 +16,30 @@ import { MessageType } from "../types";
 const logger = new Logger("Content");
 logger.log("Content script running.");
 
-const broadcastChannelName = `TLP_${generateRandomString(32)}`;
-const broadcastChannel = new BroadcastChannel(broadcastChannelName);
+let broadcastChannelName: string;
+let broadcastChannel: BroadcastChannel;
 
-injectPageScript();
+if (isChromium) {
+  broadcastChannelName = `TLP_${generateRandomString(32)}`;
+  broadcastChannel = new BroadcastChannel(broadcastChannelName);
 
-if (store.readyState === "complete") onStoreLoad();
-else store.addEventListener("load", onStoreLoad);
-store.addEventListener("change", onStoreChange);
+  // Initialize listeners.
+  if (store.readyState === "complete") onStoreLoad();
+  else store.addEventListener("load", onStoreLoad);
+  store.addEventListener("change", onStoreChange);
+  browser.runtime.onMessage.addListener(onBackgroundMessage);
+  broadcastChannel.addEventListener("message", onPageMessage);
 
-browser.runtime.onMessage.addListener(onBackgroundMessage);
-broadcastChannel.addEventListener("message", onPageMessage);
-
-function injectPageScript() {
+  // Inject page script.
   // From https://stackoverflow.com/a/9517879
   const script = document.createElement("script");
-  script.src = pageScriptURL; // src/page/page.ts
   script.dataset.params = JSON.stringify({
     isChromium,
     workerScriptURL, // src/page/worker.ts
     broadcastChannelName,
   });
-  script.onload = () => script.remove();
+  script.dataset.removable = "element";
+  script.src = pageScriptURL; // src/page/page.ts
   // ---------------------------------------
   // 🦊 Attention Firefox Addon Reviewer 🦊
   // ---------------------------------------
@@ -45,9 +48,58 @@ function injectPageScript() {
   // The `url:` imports above are used to get the runtime URLs of the respective scripts.
   // Additionally, there is no custom Content Security Policy (CSP) in use.
   (document.head || document.documentElement).prepend(script); // Note: Despite what the TS types say, `document.head` can be `null`.
+} else {
+  // We need to get the BroadcastChannel name from the injected script element
+  // because we can't generate it here and pass it to the page script (already
+  // injected in `onBeforeTwitchTvSendHeaders`).
+  getPageScriptElement()
+    .then(scriptElement => {
+      broadcastChannelName = JSON.parse(
+        scriptElement.dataset.params!
+      ).broadcastChannelName;
+      broadcastChannel = new BroadcastChannel(broadcastChannelName);
+
+      // Initialize listeners.
+      if (store.readyState === "complete") onStoreLoad();
+      else store.addEventListener("load", onStoreLoad);
+      store.addEventListener("change", onStoreChange);
+      browser.runtime.onMessage.addListener(onBackgroundMessage);
+      broadcastChannel.addEventListener("message", onPageMessage);
+
+      // Clean up script dataset/element.
+      switch (scriptElement.dataset.removable) {
+        case "params":
+          delete scriptElement.dataset.params;
+          break;
+        case "element":
+          scriptElement.remove();
+          break;
+      }
+      scriptElement.dataset.removable = "element";
+    })
+    .catch(error => {
+      logger.error("Failed to find injected page script element:", error);
+      throw new Error("Failed to find injected page script element.");
+    });
 }
 
 function onStoreLoad() {
+  // Send store state to page script and worker script(s).
+  const state = JSON.parse(JSON.stringify(store.state));
+  broadcastChannel.postMessage({
+    type: MessageType.PageScriptMessage,
+    message: {
+      type: MessageType.GetStoreStateResponse,
+      state,
+    },
+  });
+  broadcastChannel.postMessage({
+    type: MessageType.WorkerScriptMessage,
+    message: {
+      type: MessageType.GetStoreStateResponse,
+      state,
+    },
+  });
   // Clear stats for stream on page load/reload.
   const channelName = findChannelFromTwitchTvUrl(location.href);
   clearStats(channelName);
@@ -120,13 +172,26 @@ async function onPageMessage(event: MessageEvent) {
 
   if (message.type === MessageType.GetStoreState) {
     const sendStoreState = () => {
-      broadcastChannel.postMessage({
-        type: MessageType.PageScriptMessage,
-        message: {
-          type: MessageType.GetStoreStateResponse,
-          state: JSON.parse(JSON.stringify(store.state)),
-        },
-      });
+      const state = JSON.parse(JSON.stringify(store.state));
+      const from: PageState["scope"] | undefined = message.from;
+      if (from !== "worker") {
+        broadcastChannel.postMessage({
+          type: MessageType.PageScriptMessage,
+          message: {
+            type: MessageType.GetStoreStateResponse,
+            state,
+          },
+        });
+      }
+      if (from !== "page") {
+        broadcastChannel.postMessage({
+          type: MessageType.WorkerScriptMessage,
+          message: {
+            type: MessageType.GetStoreStateResponse,
+            state,
+          },
+        });
+      }
     };
     if (store.readyState === "complete") sendStoreState();
     else store.addEventListener("load", sendStoreState);
@@ -249,4 +314,36 @@ async function onPageMessage(event: MessageEvent) {
       reason: message.errorMessage,
     });
   }
+}
+
+async function getPageScriptElement(): Promise<HTMLScriptElement> {
+  const scriptElement = document.querySelector(
+    'script[src="' + pageScriptURL + '"]'
+  ) as HTMLScriptElement | null;
+  if (scriptElement) return scriptElement;
+  return new Promise<HTMLScriptElement>((resolve, reject) => {
+    const observer = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (
+            node.nodeType === Node.ELEMENT_NODE &&
+            (node as Element).tagName === "SCRIPT" &&
+            (node as HTMLScriptElement).src === pageScriptURL
+          ) {
+            observer.disconnect();
+            resolve(node as HTMLScriptElement);
+            return;
+          }
+        }
+      }
+    });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+    setTimeout(() => {
+      observer.disconnect();
+      reject(new Error("Timeout while waiting for page script element."));
+    }, 15000); // 15 seconds timeout
+  });
 }

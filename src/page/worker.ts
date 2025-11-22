@@ -83,15 +83,18 @@ broadcastChannel.addEventListener("message", event => {
   if (!message) return;
 
   switch (message.type) {
-    case MessageType.GetStoreStateResponse: // From Page
+    case MessageType.GetStoreStateResponse:
       if (pageState.state == null) {
-        logger.log("Received store state from page script.");
+        logger.log("Received store state from content script.");
       } else {
-        logger.debug("Received store state from page script.");
+        logger.debug("Received store state from content script.");
       }
       const state = message.state;
       pageState.state = state;
       break;
   }
 });
-sendMessageToPageScript({ type: MessageType.GetStoreState });
+sendMessageToContentScript({
+  type: MessageType.GetStoreState,
+  from: pageState.scope,
+});

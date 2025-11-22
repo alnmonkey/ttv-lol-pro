@@ -36,7 +36,12 @@ try {
 } catch (error) {
   logger.error("Failed to parse params:", error);
 }
-delete document.currentScript!.dataset.params;
+if (document.currentScript!.dataset.removable === "element") {
+  delete document.currentScript!.dataset.params;
+} else {
+  // Ready for params removal by content script.
+  document.currentScript!.dataset.removable = "params";
+}
 
 const broadcastChannel = new BroadcastChannel(params.broadcastChannelName);
 const sendMessageToContentScript =
@@ -103,7 +108,6 @@ if (newWorker !== null) {
   }
 }
 
-let sendStoreStateToWorker = false;
 broadcastChannel.addEventListener("message", event => {
   if (!event.data || event.data.type !== MessageType.PageScriptMessage) {
     return;
@@ -113,16 +117,7 @@ broadcastChannel.addEventListener("message", event => {
   if (!message) return;
 
   switch (message.type) {
-    case MessageType.GetStoreState: // From Worker
-      if (pageState.state != null) {
-        sendMessageToWorkerScripts({
-          type: MessageType.GetStoreStateResponse,
-          state: pageState.state,
-        });
-      }
-      sendStoreStateToWorker = true;
-      break;
-    case MessageType.GetStoreStateResponse: // From Content
+    case MessageType.GetStoreStateResponse:
       if (pageState.state == null) {
         logger.log("Received store state from content script.");
       } else {
@@ -130,16 +125,13 @@ broadcastChannel.addEventListener("message", event => {
       }
       const state = message.state;
       pageState.state = state;
-      if (sendStoreStateToWorker) {
-        sendMessageToWorkerScripts({
-          type: MessageType.GetStoreStateResponse,
-          state,
-        });
-      }
       break;
   }
 });
-sendMessageToContentScript({ type: MessageType.GetStoreState });
+sendMessageToContentScript({
+  type: MessageType.GetStoreState,
+  from: pageState.scope,
+});
 
 function onChannelChange(
   callback: (channelName: string, oldChannelName: string | null) => void
@@ -206,4 +198,9 @@ onChannelChange((_channelName, oldChannelName) => {
   });
 });
 
-document.currentScript!.remove();
+if (document.currentScript!.dataset.removable === "element") {
+  document.currentScript!.remove();
+} else {
+  // Ready for element removal by content script.
+  document.currentScript!.dataset.removable = "element";
+}
