@@ -19,12 +19,10 @@ const logger = new Logger("Page");
 const performanceNavigationEntry =
   performance.getEntriesByType("navigation")[0];
 if (performanceNavigationEntry) {
-  const injectionTime =
-    performance.now() - performanceNavigationEntry.startTime;
   logger.log(
-    `Page script running (injected ${(injectionTime / 1000).toFixed(
-      3
-    )}s after navigation start).`
+    `Page script running (injected after ${
+      performance.now() - performanceNavigationEntry.startTime
+    }ms since navigation start).`
   );
 } else {
   logger.log("Page script running.");
@@ -37,8 +35,8 @@ if (!document.documentElement.dataset.tlpParams) {
       if (performanceNavigationEntry) {
         logger.log(
           `Received params from content script (after ${
-            (performance.now() - performanceNavigationEntry.startTime) / 1000
-          }s since navigation start).`
+            performance.now() - performanceNavigationEntry.startTime
+          }ms since navigation start).`
         );
       } else {
         logger.log("Received params from content script.");
@@ -58,6 +56,10 @@ if (!document.documentElement.dataset.tlpParams) {
 
 async function waitForParams(): Promise<any> {
   return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error("Timed out waiting for params."));
+    }, 10000); // 10 seconds timeout
     const observer = new MutationObserver(mutations => {
       for (const mutation of mutations) {
         if (
@@ -65,6 +67,7 @@ async function waitForParams(): Promise<any> {
           mutation.attributeName === "data-tlp-params" &&
           document.documentElement.dataset.tlpParams
         ) {
+          clearTimeout(timeout);
           observer.disconnect();
           try {
             const params = JSON.parse(
@@ -78,10 +81,6 @@ async function waitForParams(): Promise<any> {
       }
     });
     observer.observe(document.documentElement, { attributes: true });
-    setTimeout(() => {
-      observer.disconnect();
-      reject(new Error("Timed out waiting for params."));
-    }, 10000); // 10 seconds timeout
   });
 }
 

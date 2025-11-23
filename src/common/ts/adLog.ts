@@ -12,8 +12,8 @@ export async function resolveAdIdentity(
   timeout?: number
 ): Promise<boolean> {
   if (!(0 <= index && index < store.state.adLog.length)) return false;
-  if (!store.state.adLog[index].parsedLine?.adLineItemId) return false;
   if (store.state.adLog[index].adIdentity) return true; // Already resolved.
+  if (!store.state.adLog[index].parsedLine?.adLineItemId) return false;
 
   // Try to find existing identity in other log entries first.
   if (

@@ -16,12 +16,10 @@ const logger = new Logger("Content");
 const performanceNavigationEntry =
   performance.getEntriesByType("navigation")[0];
 if (performanceNavigationEntry) {
-  const injectionTime =
-    performance.now() - performanceNavigationEntry.startTime;
   logger.log(
-    `Content script running (injected ${(injectionTime / 1000).toFixed(
-      3
-    )}s after navigation start).`
+    `Content script running (injected after ${
+      performance.now() - performanceNavigationEntry.startTime
+    }ms since navigation start).`
   );
 } else {
   logger.log("Content script running.");
