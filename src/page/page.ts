@@ -20,9 +20,9 @@ const performanceNavigationEntry =
   performance.getEntriesByType("navigation")[0];
 if (performanceNavigationEntry) {
   logger.log(
-    `Page script running (injected after ${
+    `Page script running (injected after ${(
       performance.now() - performanceNavigationEntry.startTime
-    }ms since navigation start).`
+    ).toFixed(0)}ms since navigation start).`
   );
 } else {
   logger.log("Page script running.");
@@ -34,9 +34,9 @@ if (!document.documentElement.dataset.tlpParams) {
     .then(params => {
       if (performanceNavigationEntry) {
         logger.log(
-          `Received params from content script (after ${
+          `Received params from content script (after ${(
             performance.now() - performanceNavigationEntry.startTime
-          }ms since navigation start).`
+          ).toFixed(0)}ms since navigation start).`
         );
       } else {
         logger.log("Received params from content script.");

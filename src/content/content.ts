@@ -17,9 +17,9 @@ const performanceNavigationEntry =
   performance.getEntriesByType("navigation")[0];
 if (performanceNavigationEntry) {
   logger.log(
-    `Content script running (injected after ${
+    `Content script running (injected after ${(
       performance.now() - performanceNavigationEntry.startTime
-    }ms since navigation start).`
+    ).toFixed(0)}ms since navigation start).`
   );
 } else {
   logger.log("Content script running.");
