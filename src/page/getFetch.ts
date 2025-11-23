@@ -159,6 +159,10 @@ export default function getFetch(pageState: PageState): typeof fetch {
     let isFlaggedRequest = false; // Whether or not the request should be proxied.
     let request: Request | null = null; // Request can be overwritten.
     let requestType: ProxyRequestType | null = null;
+    let graphQlSplitRequest: Request | null = null;
+    let graphQlSplitIndexMap:
+      | [Map<number, number>, Map<number, number>]
+      | null = null; // [Proxied, Non-proxied]
 
     // Reading the request body can be expensive, so we only do it if we need to.
     let requestBody: string | null | undefined = undefined;
@@ -180,37 +184,21 @@ export default function getFetch(pageState: PageState): typeof fetch {
       //#region GraphQL PlaybackAccessToken requests.
       requestBody ??= await readRequestBody();
       if (requestBody != null && requestBody.includes("PlaybackAccessToken")) {
-        if (requestBody.includes("PrefetchPlaybackAccessToken")) {
-          // FIXME: Split the request in a proxied and non-proxied (whitelisted) sub-request.
-          // Then build a response that merges both sub-responses.
-          cancelRequest();
-        }
-
-        // Cache the request headers and body for later use.
-        cachedPlaybackTokenRequestHeaders = headersMap;
-        cachedPlaybackTokenRequestBody = requestBody;
-
-        // Check if this is a livestream and if it's whitelisted.
         let graphQlBody = null;
         try {
           graphQlBody = JSON.parse(requestBody);
         } catch (error) {
           logger.error("Failed to parse GraphQL request body:", error);
-        }
-        await waitForStore(pageState);
-        const isLivestream = graphQlBody?.variables?.isLive as
-          | boolean
-          | undefined;
-        const isFrontpage = graphQlBody?.variables?.playerType === "frontpage";
-        const channelName = graphQlBody?.variables?.login as string | undefined;
-        const isWhitelisted = isChannelWhitelisted(channelName, pageState);
-        if (!isLivestream || isFrontpage || isWhitelisted) {
-          logger.log(
-            "Not flagging PlaybackAccessToken request: not a livestream, is frontpage, or is whitelisted."
-          );
           break graphqlReq;
         }
+        const isGraphQlBodyArray = Array.isArray(graphQlBody);
+        if (!isGraphQlBodyArray) {
+          // Cache the request headers and body for later use.
+          cachedPlaybackTokenRequestHeaders = headersMap;
+          cachedPlaybackTokenRequestBody = requestBody;
+        }
 
+        await waitForStore(pageState);
         const areIntegrityRequestsProxied = isRequestTypeProxied(
           ProxyRequestType.GraphQLIntegrity,
           {
@@ -223,6 +211,8 @@ export default function getFetch(pageState: PageState): typeof fetch {
               : null,
           }
         );
+        let willFailIntegrityCheckIfProxied =
+          isIntegrityHeaderRequest && !areIntegrityRequestsProxied;
         const shouldFlagRequest = isRequestTypeProxied(
           ProxyRequestType.GraphQLToken,
           {
@@ -235,27 +225,134 @@ export default function getFetch(pageState: PageState): typeof fetch {
               : null,
           }
         );
-        let willFailIntegrityCheckIfProxied =
-          isIntegrityHeaderRequest && !areIntegrityRequestsProxied;
         const shouldOverrideRequest =
           pageState.state?.anonymousMode === true ||
           (shouldFlagRequest && willFailIntegrityCheckIfProxied);
-        if (shouldOverrideRequest) {
-          const newRequest = getDefaultPlaybackAccessTokenRequest(
-            channelName,
-            pageState.state?.anonymousMode === true
-          );
-          if (newRequest) {
-            logger.log("Overriding PlaybackAccessToken request…");
-            request = newRequest;
-            willFailIntegrityCheckIfProxied = false; // Template requests don't have integrity checks.
-          } else {
-            logger.error("Failed to override PlaybackAccessToken request.");
+
+        const allQueries = isGraphQlBodyArray ? graphQlBody : [graphQlBody];
+        const [tokenQueries, otherQueries] = partitionMap(
+          allQueries,
+          (query: any) => query?.operationName?.includes("PlaybackAccessToken")
+        );
+        let [tokenQueriesToProxy, tokenQueriesNotToProxy] = partitionMap(
+          tokenQueries,
+          (query: any) => {
+            const channelName = query?.variables?.login as string | undefined;
+            if (!channelName) return false;
+            const isLivestream = !/\^\d+$/.test(channelName); // VODs have numeric IDs.
+            const isFrontpage = query?.variables?.playerType === "frontpage";
+            const isWhitelisted = isChannelWhitelisted(channelName, pageState);
+            return isLivestream && !isFrontpage && !isWhitelisted;
           }
+        );
+
+        if (tokenQueriesToProxy.size === 0) {
+          logger.log(
+            "Not flagging *PlaybackAccessToken* request: not a livestream, is frontpage, or is whitelisted."
+          );
+          break graphqlReq;
         }
+
+        if (shouldOverrideRequest) {
+          logger.log("Overriding *PlaybackAccessToken* request…");
+          if (willFailIntegrityCheckIfProxied) {
+            const setHeaderToMapIfNotExists = (name: string, value: string) => {
+              if (getHeaderFromMap(headersMap, name) == null) {
+                setHeaderToMap(headersMap, name, value);
+              }
+            };
+            // Map to template queries (they don't require client integrity).
+            tokenQueriesToProxy.forEach((query: any, key: number) => {
+              // /!\ Twitch could start enforcing integrity checks on
+              // PrefetchPlaybackAccessToken too! If that happens, add it to
+              // the list below.
+              const operationNamesRequiringIntegrityCheck = [
+                "PlaybackAccessToken",
+              ];
+              if (
+                operationNamesRequiringIntegrityCheck.includes(
+                  query.operationName
+                )
+              ) {
+                const channelName = query.variables.login as string;
+                const { query: gqlQuery, headersMap: gqlHeadersMap } =
+                  getDefaultPlaybackAccessTokenQueryAndHeaders(
+                    channelName,
+                    pageState.state?.anonymousMode === true
+                  );
+                tokenQueriesToProxy.set(key, gqlQuery);
+                // Set required headers from the template.
+                gqlHeadersMap.forEach((value, name) => {
+                  setHeaderToMapIfNotExists(name, value);
+                });
+              }
+            });
+            logger.debug("Mapped to PlaybackAccessToken_Template queries:", [
+              ...tokenQueriesToProxy.values(),
+            ]);
+            removeHeaderFromMap(headersMap, "Client-Integrity");
+            willFailIntegrityCheckIfProxied = false;
+          }
+          const setHeaderToMapIfExists = (name: string, value: string) => {
+            if (getHeaderFromMap(headersMap, name) != null) {
+              setHeaderToMap(headersMap, name, value);
+            }
+          };
+          if (pageState.state?.anonymousMode === true) {
+            setHeaderToMapIfExists("Authorization", "undefined");
+          }
+          setHeaderToMapIfExists(
+            "Client-Session-Id",
+            generateRandomString(16, Charset.ALPHANUMERIC_LOWERCASE)
+          );
+          setHeaderToMapIfExists("Device-ID", generateRandomString(32));
+          setHeaderToMapIfExists("X-Device-Id", generateRandomString(32));
+        }
+
+        if (tokenQueriesToProxy.size === allQueries.length) {
+          const tokenQueriesToProxyValues = [...tokenQueriesToProxy.values()];
+          request = new Request(url, {
+            ...init,
+            headers: Object.fromEntries(headersMap),
+            body: JSON.stringify(
+              isGraphQlBodyArray
+                ? tokenQueriesToProxyValues
+                : tokenQueriesToProxyValues[0] // Preserve original structure.
+            ),
+          });
+        } else {
+          logger.log(
+            "Splitting *PlaybackAccessToken* request into one to be proxied and one not…"
+          );
+          // Current request becomes the proxied request.
+          request = new Request(url, {
+            ...init,
+            headers: Object.fromEntries(headersMap),
+            body: JSON.stringify([...tokenQueriesToProxy.values()]), // Splitting logic requires array body.
+          });
+          // Create a new request for the non-proxied queries.
+          graphQlSplitRequest = new Request(url, {
+            ...init,
+            body: JSON.stringify([
+              ...tokenQueriesNotToProxy.values(),
+              ...otherQueries.values(),
+            ]),
+          });
+          graphQlSplitIndexMap = [
+            new Map(
+              [...tokenQueriesToProxy.keys()].map((key, index) => [index, key])
+            ),
+            new Map(
+              [...tokenQueriesNotToProxy.keys(), ...otherQueries.keys()].map(
+                (key, index) => [index, key]
+              )
+            ),
+          ];
+        }
+
         // Notice that if anonymous mode fails, we still flag the request to avoid ads.
         if (shouldFlagRequest && !willFailIntegrityCheckIfProxied) {
-          logger.log("Flagging PlaybackAccessToken request…");
+          logger.log("Flagging *PlaybackAccessToken* request…");
           isFlaggedRequest = true;
         }
         break graphqlReq;
@@ -470,6 +567,53 @@ export default function getFetch(pageState: PageState): typeof fetch {
       const clonedResponse = response.clone();
       return clonedResponse.text();
     };
+
+    // Merge split GraphQL responses.
+    if (graphQlSplitRequest != null && graphQlSplitIndexMap != null) {
+      const splitResponse = await NATIVE_FETCH(graphQlSplitRequest);
+      try {
+        const responseBody1 = JSON.parse(await readResponseBody());
+        const responseBody2 = JSON.parse(await splitResponse.text());
+        const mergedBodyMap = new Map<number, any>(); // originalIndex -> value
+        if (Array.isArray(responseBody1)) {
+          for (const [
+            index,
+            originalIndex,
+          ] of graphQlSplitIndexMap[0].entries()) {
+            mergedBodyMap.set(originalIndex, responseBody1[index]);
+          }
+        }
+        if (Array.isArray(responseBody2)) {
+          for (const [
+            index,
+            originalIndex,
+          ] of graphQlSplitIndexMap[1].entries()) {
+            mergedBodyMap.set(originalIndex, responseBody2[index]);
+          }
+        }
+        if (mergedBodyMap.size === 0) {
+          logger.error(
+            "Failed to merge GraphQL split responses: no entries found.",
+            responseBody1,
+            responseBody2
+          );
+          throw new Error("No entries found in merged GraphQL responses.");
+        }
+        const mergedBody = Array.from(mergedBodyMap.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([, value]) => value);
+        response = new Response(JSON.stringify(mergedBody), {
+          ...response,
+        });
+        responseBody = JSON.stringify(mergedBody);
+        logger.debug(
+          "Successfully merged GraphQL split responses.",
+          mergedBody
+        );
+      } catch (error) {
+        logger.error("Failed to merge GraphQL split responses:", error);
+      }
+    }
 
     //#region Responses
 
@@ -858,6 +1002,24 @@ function wasChannelSubscriber(
   );
 }
 
+function partitionMap<T>(
+  items: T[] | Map<number, T>,
+  pred: (item: T) => boolean
+): [Map<number, T>, Map<number, T>] {
+  const truthy = new Map<number, T>();
+  const falsy = new Map<number, T>();
+  if (items instanceof Map) {
+    for (const [key, value] of items.entries()) {
+      (pred(value) ? truthy : falsy).set(key, value);
+    }
+  } else {
+    for (let i = 0; i < items.length; i++) {
+      (pred(items[i]) ? truthy : falsy).set(i, items[i]);
+    }
+  }
+  return [truthy, falsy];
+}
+
 function anonymizeUsherUrl(usherUrl: string): string {
   try {
     const url = new URL(usherUrl);
@@ -997,6 +1159,45 @@ function getHighlightOfAdUrl(url: string | undefined): string | undefined {
 
 //#region Video Weaver URL replacement
 
+function getDefaultPlaybackAccessTokenQueryAndHeaders(
+  channel: string,
+  anonymousMode: boolean
+): { query: any; headersMap: Map<string, string> } {
+  const isVod = /^\d+$/.test(channel); // VODs have numeric IDs.
+  const cookieMap = new Map<string, string>(
+    document.cookie
+      .split(";")
+      .map(cookie => cookie.trim().split("="))
+      .map(([name, value]) => [name, decodeURIComponent(value)])
+  );
+  return {
+    query: {
+      operationName: "PlaybackAccessToken_Template",
+      query:
+        'query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!, $platform: String!) {  streamPlaybackAccessToken(channelName: $login, params: {platform: $platform, playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isLive) {    value    signature   authorization { isForbidden forbiddenReasonCode }   __typename  }  videoPlaybackAccessToken(id: $vodID, params: {platform: $platform, playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isVod) {    value    signature   __typename  }}',
+      variables: {
+        isLive: !isVod,
+        isVod: isVod,
+        login: isVod ? "" : channel,
+        platform: "web",
+        playerType: "site",
+        vodID: isVod ? channel : "",
+      },
+    },
+    headersMap: new Map<string, string>([
+      [
+        "Authorization",
+        cookieMap.has("auth-token") && !anonymousMode
+          ? `OAuth ${cookieMap.get("auth-token")}`
+          : "undefined",
+      ],
+      ["Client-ID", "kimne78kx3ncx6brgo4mv6wki5h1ko"],
+      ["Content-Type", "text/plain; charset=UTF-8"],
+      ["Device-ID", generateRandomString(32)],
+    ]),
+  };
+}
+
 /**
  * Returns a PlaybackAccessToken request that can be used when Twitch doesn't send one.
  * @param channel
@@ -1010,43 +1211,14 @@ function getDefaultPlaybackAccessTokenRequest(
   // We can use `location.href` because we're in the page script.
   const channelName = channel ?? findChannelFromTwitchTvUrl(location.href);
   if (!channelName) return null;
-  const isVod = /^\d+$/.test(channelName); // VODs have numeric IDs.
-
-  const cookieMap = new Map<string, string>(
-    document.cookie
-      .split(";")
-      .map(cookie => cookie.trim().split("="))
-      .map(([name, value]) => [name, decodeURIComponent(value)])
+  const { query, headersMap } = getDefaultPlaybackAccessTokenQueryAndHeaders(
+    channelName,
+    anonymousMode
   );
-
-  const headersMap = new Map<string, string>([
-    [
-      "Authorization",
-      cookieMap.has("auth-token") && !anonymousMode
-        ? `OAuth ${cookieMap.get("auth-token")}`
-        : "undefined",
-    ],
-    ["Client-ID", "kimne78kx3ncx6brgo4mv6wki5h1ko"],
-    ["Content-Type", "text/plain; charset=UTF-8"],
-    ["Device-ID", generateRandomString(32)],
-  ]);
-
   return new Request("https://gql.twitch.tv/gql", {
     method: "POST",
     headers: Object.fromEntries(headersMap),
-    body: JSON.stringify({
-      operationName: "PlaybackAccessToken_Template",
-      query:
-        'query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!, $platform: String!) {  streamPlaybackAccessToken(channelName: $login, params: {platform: $platform, playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isLive) {    value    signature   authorization { isForbidden forbiddenReasonCode }   __typename  }  videoPlaybackAccessToken(id: $vodID, params: {platform: $platform, playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isVod) {    value    signature   __typename  }}',
-      variables: {
-        isLive: !isVod,
-        login: isVod ? "" : channelName,
-        isVod: isVod,
-        vodID: isVod ? channelName : "",
-        playerType: "site",
-        platform: "web",
-      },
-    }),
+    body: JSON.stringify(query),
   });
 }
 
