@@ -159,10 +159,8 @@ export default function getFetch(pageState: PageState): typeof fetch {
     let isFlaggedRequest = false; // Whether or not the request should be proxied.
     let request: Request | null = null; // Request can be overwritten.
     let requestType: ProxyRequestType | null = null;
-    let graphQlSplitRequest: Request | null = null;
-    let graphQlSplitIndexMap:
-      | [Map<number, number>, Map<number, number>]
-      | null = null; // [Proxied, Non-proxied]
+    let splitRequest: Request | null = null;
+    let splitIndexMap: [Map<number, number>, Map<number, number>] | null = null; // [Proxied, Non-proxied]
 
     // Reading the request body can be expensive, so we only do it if we need to.
     let requestBody: string | null | undefined = undefined;
@@ -177,9 +175,9 @@ export default function getFetch(pageState: PageState): typeof fetch {
     graphqlReq: if (host != null && twitchGqlHostRegex.test(host)) {
       requestType = ProxyRequestType.GraphQL;
 
-      const integrityHeader = getHeaderFromMap(headersMap, "Client-Integrity");
       const isIntegrityRequest = url === "https://gql.twitch.tv/integrity";
-      const isIntegrityHeaderRequest = integrityHeader != null;
+      const isIntegrityHeaderRequest =
+        getHeaderFromMap(headersMap, "Client-Integrity") != null;
 
       //#region GraphQL PlaybackAccessToken requests.
       requestBody ??= await readRequestBody();
@@ -255,7 +253,7 @@ export default function getFetch(pageState: PageState): typeof fetch {
 
         if (shouldOverrideRequest) {
           logger.log("Overriding *PlaybackAccessToken* request…");
-          if (willFailIntegrityCheckIfProxied) {
+          if (shouldFlagRequest && willFailIntegrityCheckIfProxied) {
             const setHeaderToMapIfNotExists = (name: string, value: string) => {
               if (getHeaderFromMap(headersMap, name) == null) {
                 setHeaderToMap(headersMap, name, value);
@@ -266,19 +264,16 @@ export default function getFetch(pageState: PageState): typeof fetch {
               // /!\ Twitch could start enforcing integrity checks on
               // PrefetchPlaybackAccessToken too! If that happens, add it to
               // the list below.
-              const operationNamesRequiringIntegrityCheck = [
-                "PlaybackAccessToken",
-              ];
+              const operationsRequiringIntegrityCheck = ["PlaybackAccessToken"];
               if (
-                operationNamesRequiringIntegrityCheck.includes(
-                  query.operationName
-                )
+                operationsRequiringIntegrityCheck.includes(query.operationName)
               ) {
                 const channelName = query.variables.login as string;
                 const { query: gqlQuery, headersMap: gqlHeadersMap } =
                   getDefaultPlaybackAccessTokenQueryAndHeaders(
                     channelName,
-                    pageState.state?.anonymousMode === true
+                    pageState.state?.anonymousMode === true,
+                    query.variables.playerType
                   );
                 tokenQueriesToProxy.set(key, gqlQuery);
                 // Set required headers from the template.
@@ -322,29 +317,33 @@ export default function getFetch(pageState: PageState): typeof fetch {
           });
         } else {
           logger.log(
-            "Splitting *PlaybackAccessToken* request into one to be proxied and one not…"
+            "Splitting *PlaybackAccessToken* request into proxied and non-proxied requests…"
           );
           // Current request becomes the proxied request.
           request = new Request(url, {
             ...init,
             headers: Object.fromEntries(headersMap),
-            body: JSON.stringify([...tokenQueriesToProxy.values()]), // Splitting logic requires array body.
+            // Splitting logic requires array body even for single queries.
+            body: JSON.stringify([...tokenQueriesToProxy.values()]),
           });
-          // Create a new request for the non-proxied queries.
-          graphQlSplitRequest = new Request(url, {
+          // Split request becomes the non-proxied request.
+          splitRequest = new Request(url, {
             ...init,
             body: JSON.stringify([
               ...tokenQueriesNotToProxy.values(),
               ...otherQueries.values(),
             ]),
           });
-          graphQlSplitIndexMap = [
+          splitIndexMap = [
             new Map(
-              [...tokenQueriesToProxy.keys()].map((key, index) => [index, key])
+              [...tokenQueriesToProxy.keys()].map((originalIndex, index) => [
+                index,
+                originalIndex,
+              ])
             ),
             new Map(
               [...tokenQueriesNotToProxy.keys(), ...otherQueries.keys()].map(
-                (key, index) => [index, key]
+                (originalIndex, index) => [index, originalIndex]
               )
             ),
           ];
@@ -539,9 +538,13 @@ export default function getFetch(pageState: PageState): typeof fetch {
       headers: Object.fromEntries(headersMap),
     });
     let response: Response;
+    let splitResponse: Response | null = null;
     if (isFlaggedRequest) {
       await waitForStore(pageState);
-      response = await flagRequestAndFetch(request, requestType!, pageState);
+      [response, splitResponse] = await Promise.all([
+        flagRequestAndFetch(request, requestType!, pageState),
+        ...(splitRequest ? [NATIVE_FETCH(splitRequest)] : []), // Split requests are never proxied.
+      ]);
     } else {
       if (pageState.isChromium && requestType !== null) {
         await waitForStore(pageState);
@@ -557,7 +560,10 @@ export default function getFetch(pageState: PageState): typeof fetch {
           }
         }
       }
-      response = await NATIVE_FETCH(request);
+      [response, splitResponse] = await Promise.all([
+        NATIVE_FETCH(request),
+        ...(splitRequest ? [NATIVE_FETCH(splitRequest)] : []),
+      ]);
     }
 
     // Reading the response body can be expensive, so we only do it if we need to.
@@ -568,55 +574,48 @@ export default function getFetch(pageState: PageState): typeof fetch {
       return clonedResponse.text();
     };
 
-    // Merge split GraphQL responses.
-    if (graphQlSplitRequest != null && graphQlSplitIndexMap != null) {
-      const splitResponse = await NATIVE_FETCH(graphQlSplitRequest);
+    // Merge split responses.
+    if (splitResponse != null && splitIndexMap != null) {
       try {
-        const responseBody1 = JSON.parse(await readResponseBody());
-        const responseBody2 = JSON.parse(await splitResponse.text());
+        responseBody ??= await readResponseBody();
+        const responseBodyParsed = JSON.parse(responseBody);
+        const splitResponseBody = await splitResponse.text();
+        const splitResponseBodyParsed = JSON.parse(splitResponseBody);
         const mergedBodyMap = new Map<number, any>(); // originalIndex -> value
-        if (Array.isArray(responseBody1)) {
-          for (const [
-            index,
-            originalIndex,
-          ] of graphQlSplitIndexMap[0].entries()) {
-            mergedBodyMap.set(originalIndex, responseBody1[index]);
+        if (Array.isArray(responseBodyParsed)) {
+          for (const [index, originalIndex] of splitIndexMap[0].entries()) {
+            mergedBodyMap.set(originalIndex, responseBodyParsed[index]);
           }
         }
-        if (Array.isArray(responseBody2)) {
-          for (const [
-            index,
-            originalIndex,
-          ] of graphQlSplitIndexMap[1].entries()) {
-            mergedBodyMap.set(originalIndex, responseBody2[index]);
+        if (Array.isArray(splitResponseBodyParsed)) {
+          for (const [index, originalIndex] of splitIndexMap[1].entries()) {
+            mergedBodyMap.set(originalIndex, splitResponseBodyParsed[index]);
           }
         }
         if (mergedBodyMap.size === 0) {
-          logger.error(
-            "Failed to merge GraphQL split responses: no entries found.",
-            responseBody1,
-            responseBody2
-          );
-          throw new Error("No entries found in merged GraphQL responses.");
+          logger.error("No entries found to merge from split responses:", {
+            responseBodyParsed,
+            splitResponseBodyParsed,
+          });
+          throw new Error("No entries to merge.");
         }
-        const mergedBody = Array.from(mergedBodyMap.entries())
-          .sort((a, b) => a[0] - b[0])
-          .map(([, value]) => value);
-        response = new Response(JSON.stringify(mergedBody), {
+        const mergedBody = [...mergedBodyMap.entries()]
+          .sort(([a, _], [b, __]) => a - b)
+          .map(([_, value]) => value);
+        const mergedBodyStringified = JSON.stringify(mergedBody);
+        response = new Response(mergedBodyStringified, {
           ...response,
         });
-        responseBody = JSON.stringify(mergedBody);
-        logger.debug(
-          "Successfully merged GraphQL split responses.",
-          mergedBody
-        );
+        responseBody = mergedBodyStringified;
+        logger.debug("Successfully merged split responses.", mergedBody);
       } catch (error) {
-        logger.error("Failed to merge GraphQL split responses:", error);
+        logger.error("Failed to merge split responses:", error);
       }
     }
 
     //#region Responses
 
+    // Twitch GraphQL responses.
     graphqlRes: if (
       host != null &&
       twitchGqlHostRegex.test(host) &&
@@ -1161,7 +1160,8 @@ function getHighlightOfAdUrl(url: string | undefined): string | undefined {
 
 function getDefaultPlaybackAccessTokenQueryAndHeaders(
   channel: string,
-  anonymousMode: boolean
+  anonymousMode: boolean,
+  playerType?: string
 ): { query: any; headersMap: Map<string, string> } {
   const isVod = /^\d+$/.test(channel); // VODs have numeric IDs.
   const cookieMap = new Map<string, string>(
@@ -1180,7 +1180,7 @@ function getDefaultPlaybackAccessTokenQueryAndHeaders(
         isVod: isVod,
         login: isVod ? "" : channel,
         platform: "web",
-        playerType: "site",
+        playerType: playerType ?? "site",
         vodID: isVod ? channel : "",
       },
     },
