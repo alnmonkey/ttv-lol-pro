@@ -185,7 +185,7 @@ input[type="checkbox"] {
   padding: 0;
   border-radius: var(--switch-height);
   outline: none;
-  background: var(--button-background-color);
+  background-color: var(--button-background-color);
   vertical-align: middle;
   cursor: pointer;
   transition: background 100ms ease-in-out;
@@ -197,12 +197,12 @@ input[type="checkbox"]::before {
   width: calc(var(--switch-height) - 2 * var(--switch-padding));
   height: calc(var(--switch-height) - 2 * var(--switch-padding));
   border-radius: 50%;
-  background: white;
+  background-color: white;
   content: "";
   transition: transform 100ms ease-in-out;
 }
 input[type="checkbox"]:checked {
-  background: var(--brand-color);
+  background-color: var(--brand-color);
 }
 input[type="checkbox"]:checked::before {
   transform: translateX(calc(var(--switch-width) - var(--switch-height)));

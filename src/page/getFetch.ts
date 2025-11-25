@@ -159,8 +159,8 @@ export default function getFetch(pageState: PageState): typeof fetch {
     let isFlaggedRequest = false; // Whether or not the request should be proxied.
     let request: Request | null = null; // Request can be overwritten.
     let requestType: ProxyRequestType | null = null;
-    let splitRequest: Request | null = null;
-    let splitIndexMap: [Map<number, number>, Map<number, number>] | null = null; // [Proxied, Non-proxied]
+    let splitRequest: Request | null = null; // Part of a flagged request that should not be proxied.
+    let splitIndexMap: [Map<number, number>, Map<number, number>] | null = null; // Used to sort split queries back to original order.
 
     // Reading the request body can be expensive, so we only do it if we need to.
     let requestBody: string | null | undefined = undefined;
@@ -197,6 +197,29 @@ export default function getFetch(pageState: PageState): typeof fetch {
         }
 
         await waitForStore(pageState);
+        const allQueries = isGraphQlBodyArray ? graphQlBody : [graphQlBody];
+        const [tokenQueries, otherQueries] = partitionMap(
+          allQueries,
+          (query: any) => query?.operationName?.includes("PlaybackAccessToken")
+        );
+        let [tokenQueriesToProxy, tokenQueriesNotToProxy] = partitionMap(
+          tokenQueries,
+          (query: any) => {
+            const channelName = query?.variables?.login as string | undefined;
+            if (!channelName) return false;
+            const isLivestream = !/\^\d+$/.test(channelName); // VODs have numeric IDs.
+            const isFrontpage = query?.variables?.playerType === "frontpage";
+            const isWhitelisted = isChannelWhitelisted(channelName, pageState);
+            return isLivestream && !isFrontpage && !isWhitelisted;
+          }
+        );
+        if (tokenQueriesToProxy.size === 0) {
+          logger.log(
+            "Not flagging *PlaybackAccessToken* request: not a livestream, is frontpage, or is whitelisted."
+          );
+          break graphqlReq;
+        }
+
         const areIntegrityRequestsProxied = isRequestTypeProxied(
           ProxyRequestType.GraphQLIntegrity,
           {
@@ -226,31 +249,6 @@ export default function getFetch(pageState: PageState): typeof fetch {
         const shouldOverrideRequest =
           pageState.state?.anonymousMode === true ||
           (shouldFlagRequest && willFailIntegrityCheckIfProxied);
-
-        const allQueries = isGraphQlBodyArray ? graphQlBody : [graphQlBody];
-        const [tokenQueries, otherQueries] = partitionMap(
-          allQueries,
-          (query: any) => query?.operationName?.includes("PlaybackAccessToken")
-        );
-        let [tokenQueriesToProxy, tokenQueriesNotToProxy] = partitionMap(
-          tokenQueries,
-          (query: any) => {
-            const channelName = query?.variables?.login as string | undefined;
-            if (!channelName) return false;
-            const isLivestream = !/\^\d+$/.test(channelName); // VODs have numeric IDs.
-            const isFrontpage = query?.variables?.playerType === "frontpage";
-            const isWhitelisted = isChannelWhitelisted(channelName, pageState);
-            return isLivestream && !isFrontpage && !isWhitelisted;
-          }
-        );
-
-        if (tokenQueriesToProxy.size === 0) {
-          logger.log(
-            "Not flagging *PlaybackAccessToken* request: not a livestream, is frontpage, or is whitelisted."
-          );
-          break graphqlReq;
-        }
-
         if (shouldOverrideRequest) {
           logger.log("Overriding *PlaybackAccessToken* request…");
           if (shouldFlagRequest && willFailIntegrityCheckIfProxied) {
@@ -259,11 +257,11 @@ export default function getFetch(pageState: PageState): typeof fetch {
                 setHeaderToMap(headersMap, name, value);
               }
             };
-            // Map to template queries (they don't require client integrity).
+            // Map token queries requiring integrity checks to template ones.
+            let mappedSome = false;
             tokenQueriesToProxy.forEach((query: any, key: number) => {
-              // /!\ Twitch could start enforcing integrity checks on
-              // PrefetchPlaybackAccessToken too! If that happens, add it to
-              // the list below.
+              // If Twitch starts enforcing integrity checks on
+              // PrefetchPlaybackAccessToken, add it to the list below.
               const operationsRequiringIntegrityCheck = ["PlaybackAccessToken"];
               if (
                 operationsRequiringIntegrityCheck.includes(query.operationName)
@@ -276,15 +274,17 @@ export default function getFetch(pageState: PageState): typeof fetch {
                     query.variables.playerType
                   );
                 tokenQueriesToProxy.set(key, gqlQuery);
-                // Set required headers from the template.
                 gqlHeadersMap.forEach((value, name) => {
                   setHeaderToMapIfNotExists(name, value);
                 });
+                mappedSome = true;
               }
             });
-            logger.debug("Mapped to PlaybackAccessToken_Template queries:", [
-              ...tokenQueriesToProxy.values(),
-            ]);
+            if (mappedSome) {
+              logger.debug("Mapped to PlaybackAccessToken_Template queries:", [
+                ...tokenQueriesToProxy.values(),
+              ]);
+            }
             removeHeaderFromMap(headersMap, "Client-Integrity");
             willFailIntegrityCheckIfProxied = false;
           }
@@ -348,7 +348,6 @@ export default function getFetch(pageState: PageState): typeof fetch {
             ),
           ];
         }
-
         // Notice that if anonymous mode fails, we still flag the request to avoid ads.
         if (shouldFlagRequest && !willFailIntegrityCheckIfProxied) {
           logger.log("Flagging *PlaybackAccessToken* request…");
@@ -393,7 +392,6 @@ export default function getFetch(pageState: PageState): typeof fetch {
     usherReq: if (host != null && usherHostRegex.test(host)) {
       requestType = ProxyRequestType.Usher;
 
-      //#region Usher requests.
       cachedUsherRequestUrl = url; // Cache the URL for later use.
 
       await waitForStore(pageState);
@@ -430,14 +428,12 @@ export default function getFetch(pageState: PageState): typeof fetch {
         logger.log("Flagging Usher request…");
         isFlaggedRequest = true;
       }
-      //#endregion
     }
 
     // Twitch Video Weaver requests.
     weaverReq: if (host != null && videoWeaverHostRegex.test(host)) {
       requestType = ProxyRequestType.VideoWeaver;
 
-      //#region Video Weaver requests.
       const manifest = usherManifests.find(manifest =>
         [...manifest.assignedMap.values()].includes(url)
       );
@@ -528,7 +524,6 @@ export default function getFetch(pageState: PageState): typeof fetch {
         );
         isFlaggedRequest = true;
       }
-      //#endregion
     }
 
     //#endregion
@@ -549,6 +544,7 @@ export default function getFetch(pageState: PageState): typeof fetch {
       if (pageState.isChromium && requestType !== null) {
         await waitForStore(pageState);
         if (pageState.state?.optimizedProxiesEnabled ?? true) {
+          // Wait for proxied requests of the same type to finish.
           const mutex = pageState.requestTypeMutexes[requestType];
           const isLocked = mutex.isLocked();
           if (isLocked) {
@@ -622,6 +618,8 @@ export default function getFetch(pageState: PageState): typeof fetch {
       response.status < 400
     ) {
       await waitForStore(pageState);
+
+      //#region Automatically whitelist channels you're subscribed to.
       if (!pageState.state?.whitelistChannelSubscriptions) break graphqlRes;
       responseBody ??= await readResponseBody();
       // Preliminary check to avoid parsing the response body if possible.
@@ -676,6 +674,7 @@ export default function getFetch(pageState: PageState): typeof fetch {
       } catch (error) {
         logger.error("Failed to parse GraphQL response:", error);
       }
+      //#endregion
     }
 
     // Twitch Usher responses.
@@ -684,8 +683,7 @@ export default function getFetch(pageState: PageState): typeof fetch {
       usherHostRegex.test(host) &&
       response.status < 400
     ) {
-      //#region Usher responses.
-      // No need to wait for store here because all Usher requests have already waited for it.
+      await waitForStore(pageState);
       const isLivestream = !url.includes("/vod/");
       const isFrontpage = url.includes(
         encodeURIComponent('"player_type":"frontpage"')
@@ -729,7 +727,6 @@ export default function getFetch(pageState: PageState): typeof fetch {
         videoWeaverUrls,
         proxyCountry: proxyCountryRegex.exec(responseBody)?.[1] || undefined,
       });
-      //#endregion
     }
 
     // Twitch Video Weaver responses.
@@ -738,7 +735,6 @@ export default function getFetch(pageState: PageState): typeof fetch {
       videoWeaverHostRegex.test(host) &&
       response.status < 400
     ) {
-      //#region Video Weaver responses.
       const manifest = usherManifests.find(manifest =>
         [...manifest.assignedMap.values()].includes(url)
       );
@@ -752,117 +748,114 @@ export default function getFetch(pageState: PageState): typeof fetch {
       // Check if response contains an ad.
       responseBody ??= await readResponseBody();
       const responseBodyLower = responseBody.toLowerCase();
-      if (responseBodyLower.includes("stitched-ad")) {
-        await waitForStore(pageState);
+      const responseIncludesAd = responseBodyLower.includes("stitched-ad");
+      if (responseIncludesAd) logger.log("Ad detected.");
+      await waitForStore(pageState);
 
-        if (
-          pageState.state?.userExperienceMode !== "unlockBestQuality" &&
-          pageState.state?.optimizedProxiesEnabled === true &&
-          !videoWeaverUrlsToNotProxy.has(url) // `url` (assigned) != `videoWeaverUrl` (replacement).
-        ) {
-          const isPrerollAd = responseBodyLower.includes("preroll");
-          const isMidrollAd = responseBodyLower.includes("midroll");
-          if (isPrerollAd || isMidrollAd) {
-            if (isPrerollAd) logger.log("Preroll ad detected.");
-            else logger.log("Midroll ad detected.");
-            manifest.consecutiveAdResponses += 1;
-            manifest.consecutiveAdCooldown = 15;
-            // Avoid infinite loop by limiting ad replacement attempts.
-            if (manifest.consecutiveAdResponses <= 1) {
-              let shouldCancelRequest = false;
-              try {
-                const videoWeaverUrls = await updateVideoWeaverReplacementMap(
-                  pageState,
-                  cachedUsherRequestUrl,
-                  manifest,
-                  // Not using `!isFlaggedRequest` to avoid overriding user
-                  // passport settings. Temporarily disabling proxying is fine
-                  // though.
-                  isFlaggedRequest ? false : undefined
+      //#region Ad replacement.
+      if (
+        pageState.state?.userExperienceMode !== "unlockBestQuality" &&
+        pageState.state?.optimizedProxiesEnabled === true &&
+        !videoWeaverUrlsToNotProxy.has(url) // `url` (assigned) != `videoWeaverUrl` (replacement).
+      ) {
+        if (responseIncludesAd) {
+          manifest.consecutiveAdResponses += 1;
+          manifest.consecutiveAdCooldown = 15;
+          // Avoid infinite loop by limiting ad replacement attempts.
+          if (manifest.consecutiveAdResponses <= 1) {
+            let shouldCancelRequest = false;
+            try {
+              const videoWeaverUrls = await updateVideoWeaverReplacementMap(
+                pageState,
+                cachedUsherRequestUrl,
+                manifest,
+                // Not using `!isFlaggedRequest` to avoid overriding user
+                // passport settings. Temporarily disabling proxying is fine
+                // though.
+                isFlaggedRequest ? false : undefined
+              );
+              if (isFlaggedRequest) {
+                // Current request has already been proxied, so we don't proxy
+                // the replacement URLs in the hope that they might not
+                // contain ads since the new Usher's "USER-IP" is different.
+                videoWeaverUrls.forEach(url =>
+                  videoWeaverUrlsToNotProxy.add(url)
                 );
-                if (isFlaggedRequest) {
-                  // Current request has already been proxied, so we don't proxy
-                  // the replacement URLs in the hope that they might not
-                  // contain ads since the new Usher's "USER-IP" is different.
-                  videoWeaverUrls.forEach(url =>
-                    videoWeaverUrlsToNotProxy.add(url)
-                  );
-                  logger.debug(
-                    "Added the following URLs to the do-not-proxy list:",
-                    videoWeaverUrls
-                  );
-                }
-                shouldCancelRequest = true;
-              } catch (error) {
-                logger.error(error);
-                pageState.sendMessageToContentScript({
-                  type: MessageType.ExtensionError,
-                  errorMessage: `Failed to replace ad: ${error}`,
-                });
+                logger.debug(
+                  "Added the following URLs to the do-not-proxy list:",
+                  videoWeaverUrls
+                );
               }
-              if (shouldCancelRequest) cancelRequest();
-            } else if (manifest.consecutiveAdResponses === 2) {
-              logger.error("Maximum ad replacement attempts exceeded.");
+              shouldCancelRequest = true;
+            } catch (error) {
+              logger.error(error);
               pageState.sendMessageToContentScript({
                 type: MessageType.ExtensionError,
-                errorMessage:
-                  "Failed to replace ad: Maximum replacement attempts exceeded.",
+                errorMessage: `Failed to replace ad: ${error}`,
               });
             }
-            // Any request reaching here has either not been replaced (error)
-            // or has already exceeded the maximum replacement attempts.
-            // Not resetting `manifest.replacementMap` here to avoid player freezes.
-          } else {
-            if (manifest.consecutiveAdCooldown > 0) {
-              // Avoid infinite loop if Twitch doesn't send an ad right away but
-              // sends one within a few requests.
-              manifest.consecutiveAdCooldown -= 1;
-            } else {
-              // No ad, clear attempts.
-              manifest.consecutiveAdResponses = 0;
-            }
-          }
-        }
-
-        if (pageState.state?.adLogEnabled === true) {
-          const lines = responseBody.split("\n");
-          const adLines = lines.filter(line => {
-            const lineLower = line.toLowerCase();
-            return (
-              lineLower.includes("preroll") || lineLower.includes("midroll")
-            );
-          });
-          for (const adLine of adLines) {
-            const parser = new m3u8Parser.Parser();
-            parser.push(adLine);
-            parser.end();
-            const dateRange = parser.manifest.dateRanges?.[0];
-            const parsedLine = dateRange
-              ? {
-                  adRollType: dateRange.xTvTwitchAdRollType,
-                  adUrl: dateRange.xTvTwitchAdUrl,
-                  adUrlHighlight: getHighlightOfAdUrl(
-                    dateRange.xTvTwitchAdUrl as string | undefined
-                  ),
-                  adClickTrackingUrl: dateRange.xTvTwitchAdClickTrackingUrl,
-                  adClickTrackingUrlHighlight: getHighlightOfAdUrl(
-                    dateRange.xTvTwitchAdClickTrackingUrl as string | undefined
-                  ),
-                  adLineItemId: dateRange.xTvTwitchAdLineItemId,
-                  adCommercialId: dateRange.xTvTwitchAdCommercialId,
-                  adDsaAdvertiserId: dateRange.xTvTwitchAdDsaAdvertiserId,
-                  adDsaCampaignId: dateRange.xTvTwitchAdDsaCampaignId,
-                }
-              : undefined;
+            if (shouldCancelRequest) cancelRequest();
+          } else if (manifest.consecutiveAdResponses === 2) {
+            logger.error("Both proxied and non-proxied streams contain ads.");
             pageState.sendMessageToContentScript({
-              type: MessageType.UpdateAdLog,
-              timestamp: Date.now(),
-              channelName: manifest.channelName,
-              videoWeaverUrl: url,
-              rawLine: adLine,
-              parsedLine,
+              type: MessageType.ExtensionError,
+              errorMessage:
+                "Failed to replace ad: Both proxied and non-proxied streams contain ads.",
             });
           }
+          // Any request reaching here has either not been replaced (error)
+          // or has already exceeded the maximum replacement attempts.
+          // Not resetting `manifest.replacementMap` here to avoid player freezes.
+        } else {
+          if (manifest.consecutiveAdCooldown > 0) {
+            // Avoid infinite loop if Twitch doesn't send an ad right away but
+            // sends one within a few requests.
+            manifest.consecutiveAdCooldown -= 1;
+          } else {
+            // No ad, clear attempts.
+            manifest.consecutiveAdResponses = 0;
+          }
+        }
+      }
+      //#endregion
+
+      //#region Ad log.
+      if (responseIncludesAd && pageState.state?.adLogEnabled === true) {
+        const lines = responseBody.split("\n");
+        const adLines = lines.filter(line => {
+          const lineLower = line.toLowerCase();
+          return lineLower.includes("preroll") || lineLower.includes("midroll");
+        });
+        for (const adLine of adLines) {
+          const parser = new m3u8Parser.Parser();
+          parser.push(adLine);
+          parser.end();
+          const dateRange = parser.manifest.dateRanges?.[0];
+          const parsedLine = dateRange
+            ? {
+                adRollType: dateRange.xTvTwitchAdRollType,
+                adUrl: dateRange.xTvTwitchAdUrl,
+                adUrlHighlight: getHighlightOfAdUrl(
+                  dateRange.xTvTwitchAdUrl as string | undefined
+                ),
+                adClickTrackingUrl: dateRange.xTvTwitchAdClickTrackingUrl,
+                adClickTrackingUrlHighlight: getHighlightOfAdUrl(
+                  dateRange.xTvTwitchAdClickTrackingUrl as string | undefined
+                ),
+                adLineItemId: dateRange.xTvTwitchAdLineItemId,
+                adCommercialId: dateRange.xTvTwitchAdCommercialId,
+                adDsaAdvertiserId: dateRange.xTvTwitchAdDsaAdvertiserId,
+                adDsaCampaignId: dateRange.xTvTwitchAdDsaCampaignId,
+              }
+            : undefined;
+          pageState.sendMessageToContentScript({
+            type: MessageType.UpdateAdLog,
+            timestamp: Date.now(),
+            channelName: manifest.channelName,
+            videoWeaverUrl: url,
+            rawLine: adLine,
+            parsedLine,
+          });
         }
       }
       //#endregion
@@ -1001,22 +994,29 @@ function wasChannelSubscriber(
   );
 }
 
+/**
+ * Partitions an array or map into two maps based on a predicate.
+ * The keys of the returned maps correspond to the original indices or keys.
+ * @param items
+ * @param predicate
+ * @returns A tuple of two maps: [truthyMap, falsyMap]
+ */
 function partitionMap<T>(
   items: T[] | Map<number, T>,
-  pred: (item: T) => boolean
+  predicate: (item: T) => boolean
 ): [Map<number, T>, Map<number, T>] {
-  const truthy = new Map<number, T>();
-  const falsy = new Map<number, T>();
+  const truthyMap = new Map<number, T>();
+  const falsyMap = new Map<number, T>();
   if (items instanceof Map) {
     for (const [key, value] of items.entries()) {
-      (pred(value) ? truthy : falsy).set(key, value);
+      (predicate(value) ? truthyMap : falsyMap).set(key, value);
     }
   } else {
     for (let i = 0; i < items.length; i++) {
-      (pred(items[i]) ? truthy : falsy).set(i, items[i]);
+      (predicate(items[i]) ? truthyMap : falsyMap).set(i, items[i]);
     }
   }
-  return [truthy, falsy];
+  return [truthyMap, falsyMap];
 }
 
 function anonymizeUsherUrl(usherUrl: string): string {
