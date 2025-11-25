@@ -36,14 +36,14 @@
   },
   "dependencies": {
     "async-mutex": "^0.5.0",
-    "bowser": "^2.12.1",
-    "ip-address": "^10.0.1",
+    "bowser": "^2.13.0",
+    "ip-address": "^10.1.0",
     "m3u8-parser": "^7.2.0"
   },
   "devDependencies": {
     "@parcel/config-webextension": "^2.16.1",
-    "@types/chrome": "^0.1.27",
-    "@types/node": "^22.19.0",
+    "@types/chrome": "^0.1.31",
+    "@types/node": "^22.19.1",
     "@types/webextension-polyfill": "^0.12.4",
     "buffer": "^6.0.3",
     "parcel": "^2.16.1",
