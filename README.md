@@ -66,7 +66,7 @@
 > [!NOTE]
 > Looking for TTV LOL PRO v1? [Click here](https://github.com/younesaassila/ttv-lol-pro/tree/v1).
 
-TTV LOL PRO removes most livestream ads from Twitch. This is free, don't expect it to be perfect.
+TTV LOL PRO removes most livestream ads from Twitch.
 
 TTV LOL PRO is a fork of TTV LOL that:
 
