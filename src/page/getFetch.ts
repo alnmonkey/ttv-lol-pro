@@ -445,7 +445,7 @@ export default function getFetch(pageState: PageState): typeof fetch {
       if (videoWeaverUrlsToNotProxy.has(url)) {
         if (IS_DEVELOPMENT) {
           logger.debug(
-            "Not flagging Video Weaver request: is frontpage or is whitelisted."
+            `Not flagging request to Video Weaver URL '${url}': is frontpage or is whitelisted.`
           );
         }
         break weaverReq;
@@ -480,7 +480,7 @@ export default function getFetch(pageState: PageState): typeof fetch {
         if (videoWeaverUrlsToNotProxy.has(videoWeaverUrl)) {
           if (IS_DEVELOPMENT) {
             logger.debug(
-              `Not flagging request to replacement Video Weaver URL '${videoWeaverUrl}'.`
+              `Not flagging request to replacement Video Weaver URL '${videoWeaverUrl}': is non-proxied stream.`
             );
           }
           break weaverReq;
@@ -782,7 +782,7 @@ export default function getFetch(pageState: PageState): typeof fetch {
                   videoWeaverUrlsToNotProxy.add(url)
                 );
                 logger.debug(
-                  "Added the following URLs to the do-not-proxy list:",
+                  "Added replacement Video Weaver URLs to non-proxy list:",
                   videoWeaverUrls
                 );
               }
@@ -802,6 +802,13 @@ export default function getFetch(pageState: PageState): typeof fetch {
               errorMessage:
                 "Failed to replace ad: Both proxied and non-proxied streams contain ads.",
             });
+            if (manifest.replacementMap != null && !isFlaggedRequest) {
+              logger.debug(
+                "Clearing replacement map to prefer proxied stream."
+              );
+              manifest.replacementMap = null;
+              cancelRequest();
+            }
           }
           // Any request reaching here has either not been replaced (error)
           // or has already exceeded the maximum replacement attempts.
