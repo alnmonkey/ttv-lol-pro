@@ -3,6 +3,9 @@ export type KeyOfType<T, V> = keyof {
   [P in keyof T as T[P] extends V ? P : never]: any;
 };
 
+// From https://www.charpeni.com/blog/properly-type-object-keys-and-object-entries#solution-1
+export type ObjectEntries<T> = Array<[keyof T, T[keyof T]]>;
+
 export type ProxyType = "direct" | "http" | "https" | "socks" | "socks4";
 
 // From https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy/ProxyInfo
@@ -18,21 +21,27 @@ export interface ProxyInfo {
   connectionIsolationKey?: string;
 }
 
-export const enum AdType {
-  PREROLL = "preroll",
-  MIDROLL = "midroll",
-}
-
 export interface AdLogEntry {
-  adType: AdType;
-  isPurpleScreen: boolean;
-  proxy: string | null;
-  channel: string | null;
-  passportLevel: number;
-  anonymousMode: boolean;
   timestamp: number;
-  videoWeaverHost: string;
+  channelName: string | null;
   videoWeaverUrl: string;
+  rawLine: string;
+  parsedLine?: {
+    adRollType: "PREROLL" | "MIDROLL";
+    adUrl: string;
+    adUrlHighlight?: string;
+    adClickTrackingUrl: string;
+    adClickTrackingUrlHighlight?: string;
+    adLineItemId: string;
+    adCommercialId?: string;
+    adDsaAdvertiserId?: string;
+    adDsaCampaignId?: string;
+  };
+  adIdentity?: {
+    advertiserName: string;
+    payerName: string;
+    isIdentityVerified: boolean;
+  } | null;
 }
 
 export interface StreamStatus {
@@ -81,12 +90,14 @@ export const enum MessageType {
   EnableFullMode = "TLP_EnableFullMode",
   EnableFullModeResponse = "TLP_EnableFullModeResponse",
   DisableFullMode = "TLP_DisableFullMode",
+  DisableFullModeResponse = "TLP_DisableFullModeResponse",
   UsherResponse = "TLP_UsherResponse",
   NewPlaybackAccessToken = "TLP_NewPlaybackAccessToken",
   NewPlaybackAccessTokenResponse = "TLP_NewPlaybackAccessTokenResponse",
   ChannelSubStatusChange = "TLP_ChannelSubStatusChange",
-  MultipleAdBlockersInUse = "TLP_MultipleAdBlockersInUse",
+  UpdateAdLog = "TLP_UpdateAdLog",
   ClearStats = "TLP_ClearStats",
+  ExtensionError = "TLP_ExtensionError",
 }
 
 export const enum ProxyRequestType {
@@ -96,6 +107,7 @@ export const enum ProxyRequestType {
   GraphQL = "graphQL",
   GraphQLToken = "graphQLToken",
   GraphQLIntegrity = "graphQLIntegrity",
+  GraphQLAll = "graphQLAll",
   TwitchWebpage = "twitchWebpage",
 }
 
@@ -115,9 +127,12 @@ export type ProxyRequestParams =
       isFlagged?: boolean;
     };
 
+export type PassportConfig = Record<
+  Exclude<ProxyRequestType, ProxyRequestType.GraphQL>,
+  boolean
+>;
+
 export type UserExperienceMode =
   | "blockAds"
   | "unlockBestQuality"
   | "expertMode";
-
-export type PassportConfig = Record<ProxyRequestType, boolean>;

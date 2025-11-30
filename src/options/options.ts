@@ -3,18 +3,18 @@ import browser from "webextension-polyfill";
 import onStartupStoreCleanup from "../background/handlers/onStartupStoreCleanup";
 import $ from "../common/ts/$";
 import $$ from "../common/ts/$$";
+import { sendAdLog } from "../common/ts/adLog";
 import { readFile, saveFile } from "../common/ts/file";
 import findChannelFromTwitchTvUrl from "../common/ts/findChannelFromTwitchTvUrl";
 import isChannelWhitelisted from "../common/ts/isChannelWhitelisted";
 import isChromium from "../common/ts/isChromium";
 import isRequestTypeProxied from "../common/ts/isRequestTypeProxied";
-import loadExperience from "../common/ts/loadExperience";
 import { getProxyInfoFromUrl } from "../common/ts/proxyInfo";
 import {
   clearProxySettings,
   updateProxySettings,
 } from "../common/ts/proxySettings";
-import sendAdLog from "../common/ts/sendAdLog";
+import setUserExperienceMode from "../common/ts/setUserExperienceMode";
 import store from "../store";
 import getDefaultState from "../store/getDefaultState";
 import type { State } from "../store/types";
@@ -49,12 +49,27 @@ const exportButtonElement = $("#export-button") as HTMLButtonElement;
 const importButtonElement = $("#import-button") as HTMLButtonElement;
 const resetButtonElement = $("#reset-button") as HTMLButtonElement;
 // Experience
+const experienceInputElements = $$(
+  "input[type='radio'][name='experience']"
+) as NodeListOf<HTMLInputElement>;
 const expertModeSegmentElement = $("#expert-mode-segment") as HTMLDivElement;
 // Passport
 const passportLevelSliderElement = $(
   "#passport-level-slider"
 ) as HTMLInputElement;
 const passportLevelWarningElement = $("#passport-level-warning") as HTMLElement;
+const customPassportCheckboxElements = $$(
+  "input[type='checkbox'][name='passport-custom']"
+) as NodeListOf<HTMLInputElement>;
+const customPassportGraphQLTokenElement = $(
+  "#passport-custom-graphQLToken"
+) as HTMLInputElement;
+const customPassportGraphQLIntegrityElement = $(
+  "#passport-custom-graphQLIntegrity"
+) as HTMLInputElement;
+const customPassportGraphQLAllElement = $(
+  "#passport-custom-graphQLAll"
+) as HTMLInputElement;
 const anonymousModeCheckboxElement = $(
   "#anonymous-mode-checkbox"
 ) as HTMLInputElement;
@@ -132,7 +147,7 @@ const DEFAULT_LIST_OPTIONS: Readonly<ListOptions> = Object.freeze({
   getPromptPlaceholder: () => "Enter text to create a new item…",
   isAddAllowed: () => [true] as AllowedResult,
   isEditAllowed: () => [true] as AllowedResult,
-  focusPrompt: false, // Is set to `true` once the user has added an item.
+  focusPrompt: false, // Is set to `true` after the user has added an item.
   hidePromptMarker: false,
   insertMode: "append",
   spellcheck: false,
@@ -147,66 +162,128 @@ function main() {
     .querySelectorAll(isChromium ? ".firefox-only" : ".chromium-only")
     .forEach(element => element.remove());
   // Experience
-  const experienceInputElements = $$(
-    "input[type='radio'][name='experience']"
-  ) as NodeListOf<HTMLInputElement>;
+  if (store.state.userExperienceMode === "expertMode") {
+    expertModeSegmentElement.removeAttribute("hidden");
+  }
   experienceInputElements.forEach(inputElement => {
-    if (inputElement.value === store.state.userExperienceMode) {
-      inputElement.checked = true;
-      if (store.state.userExperienceMode === "expertMode") {
-        expertModeSegmentElement.removeAttribute("hidden");
-      }
-    }
     inputElement.addEventListener("change", () => {
-      store.state.userExperienceMode = inputElement.value as UserExperienceMode;
-      loadExperience(store.state.userExperienceMode);
-      window.location.reload();
+      setUserExperienceMode(inputElement.value as UserExperienceMode);
+      updateUI();
     });
   });
-  loadExperience(store.state.userExperienceMode);
-  $$(".block-ads").forEach(el => el.setAttribute("hidden", "true"));
-  $$(".unlock-best-quality").forEach(el => el.setAttribute("hidden", "true"));
-  $$(".expert-mode").forEach(el => el.setAttribute("hidden", "true"));
-  switch (store.state.userExperienceMode) {
-    case "blockAds":
-      $$(".block-ads").forEach(el => el.removeAttribute("hidden"));
-      break;
-    case "unlockBestQuality":
-      $$(".unlock-best-quality").forEach(el => el.removeAttribute("hidden"));
-      break;
-    case "expertMode":
-      $$(".expert-mode").forEach(el => el.removeAttribute("hidden"));
-      break;
-  }
   // Passport
-  passportLevelSliderElement.value = store.state.passportLevel.toString();
   passportLevelSliderElement.addEventListener("input", () => {
     store.state.passportLevel = parseInt(passportLevelSliderElement.value);
     if (isChromium && store.state.chromiumProxyActive) {
       updateProxySettings();
     }
-    updateProxyUsage();
+    updatePassportUI();
   });
-  const customPassportCheckboxElements = $$(
-    "input[type='checkbox'][name='passport-custom']"
-  ) as NodeListOf<HTMLInputElement>;
   customPassportCheckboxElements.forEach(checkbox => {
-    checkbox.checked =
-      store.state.customPassport[checkbox.value as keyof PassportConfig];
     checkbox.addEventListener("change", () => {
       store.state.customPassport[checkbox.value as keyof PassportConfig] =
         checkbox.checked;
       if (isChromium && store.state.chromiumProxyActive) {
         updateProxySettings();
       }
-      updateProxyUsage();
+      updatePassportUI();
     });
   });
-  updateProxyUsage();
-  anonymousModeCheckboxElement.checked = store.state.anonymousMode;
   anonymousModeCheckboxElement.addEventListener("change", () => {
     store.state.anonymousMode = anonymousModeCheckboxElement.checked;
   });
+  // Whitelisted channels
+  whitelistSubscriptionsCheckboxElement.addEventListener("change", () => {
+    const { checked } = whitelistSubscriptionsCheckboxElement;
+    store.state.whitelistChannelSubscriptions = checked;
+    if (!checked) {
+      // Clear active channel subscriptions to free up storage space.
+      store.state.activeChannelSubscriptions = [];
+    }
+  });
+  // Proxies
+  const onProxyModeChange = () => {
+    store.state.optimizedProxiesEnabled = optimizedProxiesInputElement.checked;
+    if (isChromium && store.state.chromiumProxyActive) {
+      updateProxySettings();
+    }
+    updatePassportUI();
+  };
+  optimizedProxiesInputElement.addEventListener("change", onProxyModeChange);
+  normalProxiesInputElement.addEventListener("change", onProxyModeChange);
+  otherProtocolsCheckboxElement.addEventListener("change", () => {
+    store.state.allowOtherProxyProtocols =
+      otherProtocolsCheckboxElement.checked;
+  });
+  // Ad log
+  adLogEnabledCheckboxElement.addEventListener("change", () => {
+    store.state.adLogEnabled = adLogEnabledCheckboxElement.checked;
+  });
+  adLogSendButtonElement.addEventListener("click", async () => {
+    const success = await sendAdLog();
+    if (success === null) {
+      return alert("No log entries to send.");
+    }
+    if (!success) {
+      return alert("Failed to send log.");
+    }
+    alert("Log sent successfully.");
+  });
+  adLogExportButtonElement.addEventListener("click", () => {
+    saveFile(
+      "ttv-lol-pro_ad-log.json",
+      JSON.stringify(store.state.adLog, null, 2),
+      "application/json;charset=utf-8"
+    );
+  });
+  adLogClearButtonElement.addEventListener("click", () => {
+    const confirmation = confirm(
+      "Are you sure you want to clear the ad log? This cannot be undone."
+    );
+    if (!confirmation) return;
+    store.state.adLog = [];
+  });
+  // Footer
+  versionElement.textContent = `Version ${
+    browser.runtime.getManifest().version
+  }${process.env.BETA ? " Beta " + process.env.BETA : ""}`;
+  // Main
+  updateUI(); // Load values from store into the UI.
+  mainElement.style.display = "block";
+}
+
+/**
+ * Updates the values of all options in the UI to match the values in the store.
+ */
+function updateUI() {
+  // Experience
+  experienceInputElements.forEach(inputElement => {
+    if (inputElement.value === store.state.userExperienceMode) {
+      inputElement.checked = true;
+    }
+  });
+  $$(".block-ads").forEach(e => e.setAttribute("hidden", "true"));
+  $$(".unlock-best-quality").forEach(e => e.setAttribute("hidden", "true"));
+  $$(".expert-mode").forEach(e => e.setAttribute("hidden", "true"));
+  switch (store.state.userExperienceMode) {
+    case "blockAds":
+      $$(".block-ads").forEach(e => e.removeAttribute("hidden"));
+      break;
+    case "unlockBestQuality":
+      $$(".unlock-best-quality").forEach(e => e.removeAttribute("hidden"));
+      break;
+    case "expertMode":
+      $$(".expert-mode").forEach(e => e.removeAttribute("hidden"));
+      break;
+  }
+  // Passport
+  passportLevelSliderElement.value = store.state.passportLevel.toString();
+  customPassportCheckboxElements.forEach(checkbox => {
+    checkbox.checked =
+      store.state.customPassport[checkbox.value as keyof PassportConfig];
+  });
+  updatePassportUI();
+  anonymousModeCheckboxElement.checked = store.state.anonymousMode;
   // Whitelisted channels
   listInit(whitelistedChannelsListElement, "whitelistedChannels", {
     getAlreadyExistsAlertMessage: channelName =>
@@ -221,49 +298,24 @@ function main() {
   });
   whitelistSubscriptionsCheckboxElement.checked =
     store.state.whitelistChannelSubscriptions;
-  whitelistSubscriptionsCheckboxElement.addEventListener("change", () => {
-    const { checked } = whitelistSubscriptionsCheckboxElement;
-    store.state.whitelistChannelSubscriptions = checked;
-    if (!checked) {
-      // Clear active channel subscriptions to free up storage space.
-      store.state.activeChannelSubscriptions = [];
-    }
-  });
   // Proxies
   if (store.state.optimizedProxiesEnabled)
     optimizedProxiesInputElement.checked = true;
   else normalProxiesInputElement.checked = true;
-  const onProxyModeChange = () => {
-    store.state.optimizedProxiesEnabled = optimizedProxiesInputElement.checked;
-    if (isChromium && store.state.chromiumProxyActive) {
-      updateProxySettings();
-    }
-    updateProxyUsage();
-  };
-  optimizedProxiesInputElement.addEventListener("change", onProxyModeChange);
-  normalProxiesInputElement.addEventListener("change", onProxyModeChange);
   loadProxiesLists();
   otherProtocolsCheckboxElement.checked = store.state.allowOtherProxyProtocols;
-  otherProtocolsCheckboxElement.addEventListener("change", () => {
-    store.state.allowOtherProxyProtocols =
-      otherProtocolsCheckboxElement.checked;
-    loadProxiesLists();
-  });
   // Ad log
   adLogEnabledCheckboxElement.checked = store.state.adLogEnabled;
-  adLogEnabledCheckboxElement.addEventListener("change", () => {
-    store.state.adLogEnabled = adLogEnabledCheckboxElement.checked;
-  });
-  // Footer
-  versionElement.textContent = `Version ${
-    browser.runtime.getManifest().version
-  }`;
-  // Main
-  mainElement.style.display = "block";
 }
 
-function updateProxyUsage() {
-  const unflaggedRequestParams = {
+/**
+ * Updates the proxy usage information in the passport section of the UI.
+ */
+function updatePassportUI() {
+  let usageScore = 0;
+  let showPassportLevelWarning = false;
+
+  const paramsUnflagged = {
     isChromium: isChromium,
     optimizedProxiesEnabled: store.state.optimizedProxiesEnabled,
     passportLevel: store.state.passportLevel,
@@ -273,28 +325,65 @@ function updateProxyUsage() {
     fullModeEnabled: false,
     isFlagged: false,
   };
-  const flaggedRequestParams = {
-    ...unflaggedRequestParams,
+  const paramsFlagged = {
+    ...paramsUnflagged,
     fullModeEnabled: true,
     isFlagged: true,
   };
-
-  // Proxy usage label.
-  let usageScore = 0;
-  // Unoptimized mode penalty.
-  if (!store.state.optimizedProxiesEnabled) usageScore += 1;
-  // GraphQL integrity penalty and warning.
-  if (
-    isRequestTypeProxied(
-      ProxyRequestType.GraphQLIntegrity,
-      unflaggedRequestParams
-    )
-  ) {
-    usageScore += 1;
-    passportLevelWarningElement.style.display = "block";
+  // Passport
+  if (isRequestTypeProxied(ProxyRequestType.Passport, paramsUnflagged)) {
+    passportLevelProxyUsagePassportElement.textContent = "All";
   } else {
-    passportLevelWarningElement.style.display = "none";
+    passportLevelProxyUsagePassportElement.textContent = "None";
   }
+  // Usher
+  if (isRequestTypeProxied(ProxyRequestType.Usher, paramsFlagged)) {
+    passportLevelProxyUsageUsherElement.textContent = "All";
+  } else {
+    passportLevelProxyUsageUsherElement.textContent = "None";
+  }
+  // Video Weaver
+  const flaggedVideoWeaverProxied = isRequestTypeProxied(
+    ProxyRequestType.VideoWeaver,
+    paramsFlagged
+  );
+  const unflaggedVideoWeaverProxied = isRequestTypeProxied(
+    ProxyRequestType.VideoWeaver,
+    paramsUnflagged
+  );
+  if (flaggedVideoWeaverProxied && unflaggedVideoWeaverProxied) {
+    passportLevelProxyUsageVideoWeaverElement.textContent = "All";
+    usageScore += 1;
+  } else if (flaggedVideoWeaverProxied && !unflaggedVideoWeaverProxied) {
+    passportLevelProxyUsageVideoWeaverElement.textContent = "Few";
+  } else {
+    passportLevelProxyUsageVideoWeaverElement.textContent = "None";
+  }
+  // GraphQL
+  if (isRequestTypeProxied(ProxyRequestType.GraphQLAll, paramsUnflagged)) {
+    passportLevelProxyUsageGqlElement.textContent = "All";
+    usageScore += 1;
+    showPassportLevelWarning = true;
+  } else if (
+    isRequestTypeProxied(ProxyRequestType.GraphQLIntegrity, paramsUnflagged)
+  ) {
+    passportLevelProxyUsageGqlElement.textContent = "Some";
+    usageScore += 1;
+    showPassportLevelWarning = true;
+  } else if (
+    isRequestTypeProxied(ProxyRequestType.GraphQLToken, paramsUnflagged)
+  ) {
+    passportLevelProxyUsageGqlElement.textContent = "Few";
+  } else {
+    passportLevelProxyUsageGqlElement.textContent = "None";
+  }
+  // WWW
+  if (isRequestTypeProxied(ProxyRequestType.TwitchWebpage, paramsUnflagged)) {
+    passportLevelProxyUsageWwwElement.textContent = "All";
+  } else {
+    passportLevelProxyUsageWwwElement.textContent = "None";
+  }
+
   switch (usageScore) {
     case 0:
       passportLevelProxyUsageSummaryElement.textContent = "🙂 Low proxy usage";
@@ -305,67 +394,28 @@ function updateProxyUsage() {
         "😐 Medium proxy usage";
       passportLevelProxyUsageElement.dataset.usage = "medium";
       break;
-    case 2:
+    default:
       passportLevelProxyUsageSummaryElement.textContent = "🙁 High proxy usage";
       passportLevelProxyUsageElement.dataset.usage = "high";
       break;
   }
+  passportLevelWarningElement.style.display = showPassportLevelWarning
+    ? "block"
+    : "none";
 
-  // Passport
-  if (isRequestTypeProxied(ProxyRequestType.Passport, unflaggedRequestParams)) {
-    passportLevelProxyUsagePassportElement.textContent = "All";
-  } else {
-    passportLevelProxyUsagePassportElement.textContent = "None";
-  }
-  // Usher
-  if (isRequestTypeProxied(ProxyRequestType.Usher, flaggedRequestParams)) {
-    passportLevelProxyUsageUsherElement.textContent = "All";
-  } else {
-    passportLevelProxyUsageUsherElement.textContent = "None";
-  }
-  // Video Weaver
-  const flaggedVideoWeaverProxied = isRequestTypeProxied(
-    ProxyRequestType.VideoWeaver,
-    flaggedRequestParams
-  );
-  const unflaggedVideoWeaverProxied = isRequestTypeProxied(
-    ProxyRequestType.VideoWeaver,
-    unflaggedRequestParams
-  );
-  if (flaggedVideoWeaverProxied && unflaggedVideoWeaverProxied) {
-    passportLevelProxyUsageVideoWeaverElement.textContent = "All";
-  } else if (flaggedVideoWeaverProxied && !unflaggedVideoWeaverProxied) {
-    passportLevelProxyUsageVideoWeaverElement.textContent = "Few";
-  } else {
-    passportLevelProxyUsageVideoWeaverElement.textContent = "None";
-  }
-  // GraphQL
-  if (isRequestTypeProxied(ProxyRequestType.GraphQL, unflaggedRequestParams)) {
-    passportLevelProxyUsageGqlElement.textContent = "All";
-  } else if (
-    isRequestTypeProxied(
-      ProxyRequestType.GraphQLIntegrity,
-      unflaggedRequestParams
-    )
-  ) {
-    passportLevelProxyUsageGqlElement.textContent = "Some";
-  } else if (
-    isRequestTypeProxied(ProxyRequestType.GraphQLToken, unflaggedRequestParams)
-  ) {
-    passportLevelProxyUsageGqlElement.textContent = "Few";
-  } else {
-    passportLevelProxyUsageGqlElement.textContent = "None";
-  }
-  // WWW
-  if (
-    isRequestTypeProxied(ProxyRequestType.TwitchWebpage, unflaggedRequestParams)
-  ) {
-    passportLevelProxyUsageWwwElement.textContent = "All";
-  } else {
-    passportLevelProxyUsageWwwElement.textContent = "None";
-  }
+  // Custom passport
+  customPassportGraphQLAllElement.disabled =
+    store.state.optimizedProxiesEnabled;
+  const disableTokenAndIntegrity =
+    !customPassportGraphQLAllElement.disabled &&
+    (isChromium || customPassportGraphQLAllElement.checked);
+  customPassportGraphQLTokenElement.disabled = disableTokenAndIntegrity;
+  customPassportGraphQLIntegrityElement.disabled = disableTokenAndIntegrity;
 }
 
+/**
+ * Initializes the optimized and normal proxies lists.
+ */
 function loadProxiesLists() {
   listInit(optimizedProxiesListElement, "optimizedProxies", {
     getPromptPlaceholder: insertMode => {
@@ -505,24 +555,32 @@ function listInit(
 ) {
   listElement.innerHTML = ""; // Reset list element.
   const listOptions: ListOptions = { ...DEFAULT_LIST_OPTIONS, ...options };
+  const updateListUI = () => listInit(listElement, storeKey, options);
   for (const text of store.state[storeKey]) {
-    _listAppend(listElement, storeKey, text, {
-      ...listOptions,
-      insertMode: "append", // Always append when initializing because the array is already in the correct order.
-    });
+    _listAppend(
+      listElement,
+      storeKey,
+      text,
+      { ...listOptions, insertMode: "append" }, // Always append when initializing because the array is already in the correct order.
+      updateListUI
+    );
   }
   // Add prompt(s).
   if (options.insertMode === "both") {
-    _listPrompt(listElement, storeKey, {
-      ...listOptions,
-      insertMode: "append",
-    });
-    _listPrompt(listElement, storeKey, {
-      ...listOptions,
-      insertMode: "prepend",
-    });
+    _listPrompt(
+      listElement,
+      storeKey,
+      { ...listOptions, insertMode: "append" },
+      updateListUI
+    );
+    _listPrompt(
+      listElement,
+      storeKey,
+      { ...listOptions, insertMode: "prepend" },
+      updateListUI
+    );
   } else {
-    _listPrompt(listElement, storeKey, listOptions);
+    _listPrompt(listElement, storeKey, listOptions, updateListUI);
   }
 }
 
@@ -537,18 +595,26 @@ function _listAppend(
   listElement: HTMLOListElement | HTMLUListElement,
   storeKey: StoreStringArrayKey,
   text: string,
-  options: ListOptions
+  options: ListOptions,
+  updateListUI: () => void
 ) {
   const listItem = document.createElement("li");
   const textInput = document.createElement("input");
   textInput.type = "text";
-
-  const [allowed] = options.isEditAllowed(text);
-  if (!allowed) textInput.disabled = true;
-
   textInput.placeholder = options.getItemPlaceholder(text);
   textInput.spellcheck = options.spellcheck;
   textInput.value = text;
+  const moveButtonsContainer = document.createElement("span");
+  moveButtonsContainer.className = "move-buttons-container";
+  const moveUpButton = document.createElement("button");
+  moveUpButton.textContent = "↑";
+  moveUpButton.title = "Move up";
+  const moveDownButton = document.createElement("button");
+  moveDownButton.textContent = "↓";
+  moveDownButton.title = "Move down";
+
+  const [allowed] = options.isEditAllowed(text);
+  if (!allowed) textInput.disabled = true;
 
   // Highlight text when focused.
   textInput.addEventListener("focus", textInput.select.bind(textInput));
@@ -587,7 +653,52 @@ function _listAppend(
     if (options.onChange) options.onChange(oldText, newText);
   });
 
+  moveUpButton.addEventListener("click", e => {
+    e.preventDefault();
+    // Get index of item in array.
+    const itemIndex = store.state[storeKey].findIndex(
+      item => item.toLowerCase() === text.toLowerCase()
+    );
+    if (itemIndex === -1)
+      return console.error(`Item '${text}' not found in '${storeKey}' array`);
+    if (itemIndex === 0)
+      return console.warn("Item is already at the top of the list");
+    // Swap item with the previous one.
+    const array = store.state[storeKey];
+    [array[itemIndex - 1], array[itemIndex]] = [
+      array[itemIndex],
+      array[itemIndex - 1],
+    ];
+    store.state[storeKey] = array;
+    // Update list UI.
+    updateListUI();
+  });
+
+  moveDownButton.addEventListener("click", e => {
+    e.preventDefault();
+    // Get index of item in array.
+    const itemIndex = store.state[storeKey].findIndex(
+      item => item.toLowerCase() === text.toLowerCase()
+    );
+    if (itemIndex === -1)
+      return console.error(`Item '${text}' not found in '${storeKey}' array`);
+    if (itemIndex === store.state[storeKey].length - 1)
+      return console.warn("Item is already at the bottom of the list");
+    // Swap item with the next one.
+    const array = store.state[storeKey];
+    [array[itemIndex], array[itemIndex + 1]] = [
+      array[itemIndex + 1],
+      array[itemIndex],
+    ];
+    store.state[storeKey] = array;
+    // Update list UI.
+    updateListUI();
+  });
+
+  moveButtonsContainer.append(moveUpButton);
+  moveButtonsContainer.append(moveDownButton);
   listItem.append(textInput);
+  listItem.append(moveButtonsContainer);
 
   if (options.insertMode === "prepend") listElement.prepend(listItem);
   else listElement.append(listItem);
@@ -602,13 +713,13 @@ function _listAppend(
 function _listPrompt(
   listElement: HTMLOListElement | HTMLUListElement,
   storeKey: StoreStringArrayKey,
-  options: ListOptions
+  options: ListOptions,
+  updateListUI: () => void
 ) {
   const listItem = document.createElement("li");
   if (options.hidePromptMarker) listItem.classList.add("hide-marker");
   const promptInput = document.createElement("input");
   promptInput.type = "text";
-
   promptInput.placeholder = options.getPromptPlaceholder(options.insertMode);
   promptInput.spellcheck = options.spellcheck;
 
@@ -642,11 +753,13 @@ function _listPrompt(
     if (options.onChange) options.onChange(undefined, text);
 
     listItem.remove();
-    _listAppend(listElement, storeKey, text, options);
-    _listPrompt(listElement, storeKey, {
-      ...options,
-      focusPrompt: true,
-    });
+    _listAppend(listElement, storeKey, text, options, updateListUI);
+    _listPrompt(
+      listElement,
+      storeKey,
+      { ...options, focusPrompt: true },
+      updateListUI
+    );
   });
 
   listItem.append(promptInput);
@@ -675,7 +788,7 @@ exportButtonElement.addEventListener("click", () => {
   };
   saveFile(
     "ttv-lol-pro_backup.json",
-    JSON.stringify(state),
+    JSON.stringify(state, null, 2),
     "application/json;charset=utf-8"
   );
 });
@@ -731,33 +844,6 @@ resetButtonElement.addEventListener("click", () => {
   window.location.reload(); // Reload page to update UI.
 });
 
-adLogSendButtonElement.addEventListener("click", async () => {
-  const success = await sendAdLog();
-  if (success === null) {
-    return alert("No log entries to send.");
-  }
-  if (!success) {
-    return alert("Failed to send log.");
-  }
-  alert("Log sent successfully.");
-});
-
-adLogExportButtonElement.addEventListener("click", () => {
-  saveFile(
-    "ttv-lol-pro_ad-log.json",
-    JSON.stringify(store.state.adLog),
-    "application/json;charset=utf-8"
-  );
-});
-
-adLogClearButtonElement.addEventListener("click", () => {
-  const confirmation = confirm(
-    "Are you sure you want to clear the ad log? This cannot be undone."
-  );
-  if (!confirmation) return;
-  store.state.adLog = [];
-});
-
 viewStatusOfProxiesButtonElement.addEventListener("click", () => {
   location.href = "https://status.perfprod.com/";
 });
@@ -779,7 +865,9 @@ generateTwitchTabsReportButtonElement.addEventListener("click", async () => {
 
   const extensionInfo = await browser.management.getSelf();
   const userAgentParser = Bowser.getParser(window.navigator.userAgent);
-  report += `Extension: ${extensionInfo.name} v${extensionInfo.version} (${extensionInfo.installType})\n`;
+  report += `Extension: ${extensionInfo.name} ${extensionInfo.version}${
+    process.env.BETA ? " Beta " + process.env.BETA : ""
+  } (${extensionInfo.installType})\n`;
   report += `Browser: ${userAgentParser.getBrowserName()} ${userAgentParser.getBrowserVersion()} (${userAgentParser.getOSName()} ${userAgentParser.getOSVersion()})\n\n`;
 
   const openedTabs = await browser.tabs.query({
@@ -889,6 +977,7 @@ generateTwitchTabsReportButtonElement.addEventListener("click", async () => {
   );
 });
 
+// Konami code to show expert mode option
 // From https://stackoverflow.com/a/31627191
 
 const konamiCode = [

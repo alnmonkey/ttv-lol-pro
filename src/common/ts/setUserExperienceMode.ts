@@ -1,18 +1,29 @@
 import store from "../../store";
-import type { UserExperienceMode } from "../../types";
+import type { ObjectEntries, UserExperienceMode } from "../../types";
 import isChromium from "./isChromium";
 import { updateProxySettings } from "./proxySettings";
 
-export default function loadExperience(experience: UserExperienceMode) {
+/**
+ * Safely set the user experience mode and override options accordingly.
+ * @param experienceMode
+ */
+export default function setUserExperienceMode(
+  experienceMode: UserExperienceMode
+) {
+  if (experienceMode === store.state.userExperienceMode) return;
+
   // Restore overridden options to the state.
-  for (const [key, value] of Object.entries(
+  const typedEntries = Object.entries(
     store.state.userExperienceOverridenOptions
-  )) {
-    (store.state as any)[key] = value; // TODO: Use a more type-safe approach.
+  ) as ObjectEntries<typeof store.state.userExperienceOverridenOptions>;
+  for (const [key, value] of typedEntries) {
+    if (key in store.state && value !== undefined) {
+      (store.state as any)[key] = value;
+    }
   }
   store.state.userExperienceOverridenOptions = {};
 
-  switch (experience) {
+  switch (experienceMode) {
     case "blockAds":
       store.state.customPassportEnabled = false;
       break;
@@ -32,9 +43,9 @@ export default function loadExperience(experience: UserExperienceMode) {
         passport: false,
         usher: true,
         videoWeaver: false,
-        graphQL: true,
         graphQLToken: true,
         graphQLIntegrity: false,
+        graphQLAll: false,
         twitchWebpage: false,
       };
       store.state.whitelistChannelSubscriptions = false;
@@ -44,6 +55,7 @@ export default function loadExperience(experience: UserExperienceMode) {
       break;
   }
 
+  store.state.userExperienceMode = experienceMode;
   if (isChromium && store.state.chromiumProxyActive) {
     updateProxySettings();
   }

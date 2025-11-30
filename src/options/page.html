@@ -2,7 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Options - TTV LOL PRO</title>
     <link rel="icon" href="../common/images/brand/favicon.ico" />
@@ -15,8 +14,8 @@
         <div class="title-container">
           <img
             src="../common/images/brand/icon.png"
-            alt="Icon of TTV LOL PRO"
-            class="icon"
+            alt="TTV LOL PRO logo"
+            class="logo"
           />
           <h1 class="title">Options</h1>
         </div>
@@ -66,7 +65,7 @@
           <div class="block-ads">
             <h2>Passport</h2>
             <small>
-              Controls which types of requests are proxied. Increase the slider
+              Controls the types of requests to be proxied. Increase the slider
               <b>only if you are seeing ads</b> with the current setting.
             </small>
             <br />
@@ -77,26 +76,17 @@
             <br />
           </div>
           <div class="unlock-best-quality">
-            <h2>Passport Card</h2>
-            <small>Controls which types of requests are proxied.</small>
-            <br />
+            <h2>Passport card</h2>
             <small>
-              Tailored for unlocking the best stream quality when unavailable in
-              your region, <b>not for blocking ads</b>.
+              Controls the types of requests to be proxied. Designed to unlock
+              the best stream quality when it is unavailable in your region,
+              <b>not to block ads</b>.
             </small>
             <br />
           </div>
           <div class="expert-mode">
-            <h2>Passport Forge</h2>
-            <small>
-              Controls which types of requests are proxied. Customize your
-              passport to proxy the requests you want.
-            </small>
-            <br />
-            <small>
-              GraphQL Token and GraphQL Integrity require the GraphQL option to
-              be enabled when using 'Proxy ad requests only' mode.
-            </small>
+            <h2>Passport forge</h2>
+            <small>Choose the types of requests to be proxied.</small>
             <br />
           </div>
           <div id="passport-level-container">
@@ -127,10 +117,10 @@
             </div>
             <div class="grid-slider unlock-best-quality">
               <p>
-                The "Unlock Best Quality" experience has configured your
-                passport to unlock the highest stream quality when unavailable
-                in your region (e.g. Russia). 1440p and 4K may not be unlocked
-                depending on the proxy you are using and/or your device.
+                Your passport is configured to unlock the highest stream quality
+                in regions where Twitch blocks it (e.g. Russia and South Korea).
+                1440p and 4K resolutions may not be unlocked depending on the
+                proxy you are using and/or your device.
               </p>
             </div>
             <div class="grid-slider expert-mode">
@@ -165,15 +155,6 @@
                 <div>
                   <input
                     type="checkbox"
-                    id="passport-custom-graphQL"
-                    name="passport-custom"
-                    value="graphQL"
-                  />
-                  <label for="passport-custom-graphQL">GraphQL</label>
-                </div>
-                <div>
-                  <input
-                    type="checkbox"
                     id="passport-custom-graphQLToken"
                     name="passport-custom"
                     value="graphQLToken"
@@ -192,6 +173,16 @@
                   <label for="passport-custom-graphQLIntegrity"
                     >GraphQL Integrity</label
                   >
+                </div>
+                <div>
+                  <input
+                    type="checkbox"
+                    id="passport-custom-graphQLAll"
+                    name="passport-custom"
+                    value="graphQLAll"
+                  />
+                  <label for="passport-custom-graphQLAll">GraphQL All</label>
+                  <span class="tag">For 'Proxy all requests' mode only</span>
                 </div>
                 <div>
                   <input
@@ -253,14 +244,17 @@
               />
               <label for="anonymous-mode-checkbox">Anonymous mode</label>
               <br />
+              <small>Watch streams as if you were logged out.</small>
+              <br />
               <small>
-                Watch streams as if you were logged out. This option may help
-                reduce the number of "Commercial break in progress" ads.
+                This option helps reduce the number of "Commercial break in
+                progress" ads for all users sharing the same proxy.
               </small>
               <br />
               <small>
-                This option might prevent Drops from working. Only disable it
-                <b>if you are having issues</b>.
+                This option can prevent Drops from working and can disable
+                1440p/4K resolutions. <b>Avoid disabling it</b> if you don't
+                need these features.
               </small>
             </li>
           </ul>
@@ -276,7 +270,7 @@
           <br class="chromium-only" />
           <small class="chromium-only">
             On Chromium-based browsers, whitelisting only works when all opened
-            Twitch tabs are whitelisted channels.
+            Twitch tabs are of whitelisted channels.
           </small>
           <ul id="whitelisted-channels-list" class="store-list"></ul>
           <ul class="options-list">
@@ -370,12 +364,17 @@
                 To provide a protocol, use the format
                 <code>protocol://hostname:port</code>
               </small>
+              <br />
+              <small>
+                Your browser may not support proxy authentication for some
+                protocols.
+              </small>
             </li>
           </ul>
         </section>
 
         <!-- Ad log -->
-        <section id="ad-log" class="firefox-only section block-ads expert-mode">
+        <section id="ad-log" class="section block-ads expert-mode">
           <h2>Ad log</h2>
           <small>
             If enabled, TTV LOL PRO will log all ads that did not get blocked
@@ -403,8 +402,8 @@
         <section id="troubleshooting" class="section">
           <h2>Troubleshooting</h2>
           <small>
-            If you are experiencing issues, try the following options.
-            <b>These will not fix slow loading times or buffering issues.</b>
+            If you are experiencing issues, try the following options. These
+            <b>will not fix slow loading times or buffering issues</b>.
           </small>
           <br /><br />
           <button id="view-status-of-proxies-button">

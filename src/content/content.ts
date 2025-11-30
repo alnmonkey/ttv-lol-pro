@@ -1,45 +1,64 @@
-import pageScriptURL from "url:../page/page.ts";
 import workerScriptURL from "url:../page/worker.ts";
 import browser, { Storage } from "webextension-polyfill";
+import { resolveAdIdentity } from "../common/ts/adLog";
 import findChannelFromTwitchTvUrl from "../common/ts/findChannelFromTwitchTvUrl";
+import generateRandomString from "../common/ts/generateRandomString";
 import isChannelWhitelisted from "../common/ts/isChannelWhitelisted";
 import isChromium from "../common/ts/isChromium";
+import Logger from "../common/ts/Logger";
 import { getStreamStatus, setStreamStatus } from "../common/ts/streamStatus";
+import type { PageState } from "../page/types";
 import store from "../store";
 import type { State } from "../store/types";
 import { MessageType } from "../types";
 
-console.info("[TTV LOL PRO] Content script running.");
+const logger = new Logger("Content");
+const performanceNavigationEntry =
+  performance.getEntriesByType("navigation")[0];
+if (performanceNavigationEntry) {
+  logger.log(
+    `Content script running (injected after ${(
+      performance.now() - performanceNavigationEntry.startTime
+    ).toFixed(0)}ms since navigation start).`
+  );
+} else {
+  logger.log("Content script running.");
+}
 
-if (isChromium) injectPageScript();
-// Firefox uses FilterResponseData to inject the page script.
+const broadcastChannelName = `TLP_${generateRandomString(32)}`;
+const broadcastChannel = new BroadcastChannel(broadcastChannelName);
 
 if (store.readyState === "complete") onStoreLoad();
 else store.addEventListener("load", onStoreLoad);
 store.addEventListener("change", onStoreChange);
 
 browser.runtime.onMessage.addListener(onBackgroundMessage);
-window.addEventListener("message", onPageMessage);
+broadcastChannel.addEventListener("message", onPageMessage);
 
-function injectPageScript() {
-  // From https://stackoverflow.com/a/9517879
-  const script = document.createElement("script");
-  script.src = pageScriptURL; // src/page/page.ts
-  script.dataset.params = JSON.stringify({
-    isChromium,
-    workerScriptURL, // src/page/worker.ts
-  });
-  script.onload = () => script.remove();
-  // ---------------------------------------
-  // 🦊 Attention Firefox Addon Reviewer 🦊
-  // ---------------------------------------
-  // Please note that this does NOT involve remote code execution. The injected scripts are bundled
-  // with the extension. The `url:` imports above are used to get the runtime URLs of the respective scripts.
-  // Additionally, there is no custom Content Security Policy (CSP) in use.
-  (document.head || document.documentElement).prepend(script); // Note: Despite what the TS types say, `document.head` can be `null`.
-}
+// Pass parameters to the page script.
+document.documentElement.dataset.tlpParams = JSON.stringify({
+  isChromium,
+  workerScriptURL, // src/page/worker.ts
+  broadcastChannelName,
+});
 
 function onStoreLoad() {
+  // Send store state to page script and worker script(s).
+  const state = JSON.parse(JSON.stringify(store.state));
+  broadcastChannel.postMessage({
+    type: MessageType.PageScriptMessage,
+    message: {
+      type: MessageType.GetStoreStateResponse,
+      state,
+    },
+  });
+  broadcastChannel.postMessage({
+    type: MessageType.WorkerScriptMessage,
+    message: {
+      type: MessageType.GetStoreStateResponse,
+      state,
+    },
+  });
   // Clear stats for stream on page load/reload.
   const channelName = findChannelFromTwitchTvUrl(location.href);
   clearStats(channelName);
@@ -58,9 +77,7 @@ async function clearStats(channelName: string | null, delayMs?: number) {
   if (store.state.streamStatuses.hasOwnProperty(channelNameLower)) {
     delete store.state.streamStatuses[channelNameLower];
   }
-  console.log(
-    `[TTV LOL PRO] Cleared stats for channel '${channelNameLower}' (content script).`
-  );
+  logger.log(`Cleared stats for channel '${channelNameLower}'.`);
 }
 
 function onStoreChange(changes: Record<string, Storage.StorageChange>) {
@@ -75,8 +92,8 @@ function onStoreChange(changes: Record<string, Storage.StorageChange>) {
     "videoWeaverUrlsByChannel",
   ];
   if (changedKeys.every(key => ignoredKeys.includes(key))) return;
-  console.log("[TTV LOL PRO] Store changed:", changes);
-  window.postMessage({
+  logger.log("Store changed:", changes);
+  broadcastChannel.postMessage({
     type: MessageType.PageScriptMessage,
     message: {
       type: MessageType.GetStoreStateResponse,
@@ -86,21 +103,25 @@ function onStoreChange(changes: Record<string, Storage.StorageChange>) {
 }
 
 function onBackgroundMessage(message: any): undefined {
-  switch (message.type) {
-    case MessageType.EnableFullModeResponse:
-      window.postMessage({
-        type: MessageType.PageScriptMessage,
-        message,
-      });
-      window.postMessage({
-        type: MessageType.WorkerScriptMessage,
-        message,
-      });
-      break;
+  if (!message || !message.type) return;
+
+  if (
+    message.type === MessageType.EnableFullModeResponse ||
+    message.type === MessageType.DisableFullModeResponse
+  ) {
+    // Forward the message to the page script and worker script(s).
+    broadcastChannel.postMessage({
+      type: MessageType.PageScriptMessage,
+      message,
+    });
+    broadcastChannel.postMessage({
+      type: MessageType.WorkerScriptMessage,
+      message,
+    });
   }
 }
 
-function onPageMessage(event: MessageEvent) {
+async function onPageMessage(event: MessageEvent) {
   if (!event.data || event.data.type !== MessageType.ContentScriptMessage) {
     return;
   }
@@ -110,13 +131,26 @@ function onPageMessage(event: MessageEvent) {
 
   if (message.type === MessageType.GetStoreState) {
     const sendStoreState = () => {
-      window.postMessage({
-        type: MessageType.PageScriptMessage,
-        message: {
-          type: MessageType.GetStoreStateResponse,
-          state: JSON.parse(JSON.stringify(store.state)),
-        },
-      });
+      const state = JSON.parse(JSON.stringify(store.state));
+      const from: PageState["scope"] | undefined = message.from;
+      if (from !== "worker") {
+        broadcastChannel.postMessage({
+          type: MessageType.PageScriptMessage,
+          message: {
+            type: MessageType.GetStoreStateResponse,
+            state,
+          },
+        });
+      }
+      if (from !== "page") {
+        broadcastChannel.postMessage({
+          type: MessageType.WorkerScriptMessage,
+          message: {
+            type: MessageType.GetStoreStateResponse,
+            state,
+          },
+        });
+      }
     };
     if (store.readyState === "complete") sendStoreState();
     else store.addEventListener("load", sendStoreState);
@@ -126,10 +160,7 @@ function onPageMessage(event: MessageEvent) {
     try {
       browser.runtime.sendMessage(message);
     } catch (error) {
-      console.error(
-        "[TTV LOL PRO] Failed to send EnableFullMode message",
-        error
-      );
+      logger.error("Failed to send EnableFullMode message:", error);
     }
   }
   // ---
@@ -137,17 +168,22 @@ function onPageMessage(event: MessageEvent) {
     try {
       browser.runtime.sendMessage(message);
     } catch (error) {
-      console.error(
-        "[TTV LOL PRO] Failed to send DisableFullMode message",
-        error
-      );
+      logger.error("Failed to send DisableFullMode message:", error);
+    }
+  }
+  // ---
+  else if (message.type === MessageType.UsherResponse) {
+    try {
+      browser.runtime.sendMessage(message);
+    } catch (error) {
+      logger.error("Failed to send UsherResponse message:", error);
     }
   }
   // ---
   else if (message.type === MessageType.ChannelSubStatusChange) {
     const { channelNameLower, wasSubscribed, isSubscribed } = message;
     const isWhitelisted = isChannelWhitelisted(channelNameLower);
-    console.log("[TTV LOL PRO] ChannelSubStatusChange", {
+    logger.log("Channel subscription status changed:", {
       channelNameLower,
       wasSubscribed,
       isSubscribed,
@@ -161,10 +197,8 @@ function onPageMessage(event: MessageEvent) {
         store.state.activeChannelSubscriptions.push(channelNameLower);
         // Add to whitelist.
         if (!isWhitelisted) {
-          console.log(
-            `[TTV LOL PRO] Adding '${channelNameLower}' to whitelist.`
-          );
           store.state.whitelistedChannels.push(channelNameLower);
+          logger.log(`Added '${channelNameLower}' to whitelist.`);
           if (channelNameLower === currentChannelNameLower) {
             location.reload();
           }
@@ -176,13 +210,11 @@ function onPageMessage(event: MessageEvent) {
           );
         // Remove from whitelist.
         if (isWhitelisted) {
-          console.log(
-            `[TTV LOL PRO] Removing '${channelNameLower}' from whitelist.`
-          );
           store.state.whitelistedChannels =
             store.state.whitelistedChannels.filter(
               channel => channel.toLowerCase() !== channelNameLower
             );
+          logger.log(`Removed '${channelNameLower}' from whitelist.`);
           if (channelNameLower === currentChannelNameLower) {
             location.reload();
           }
@@ -191,28 +223,54 @@ function onPageMessage(event: MessageEvent) {
     }
   }
   // ---
-  else if (message.type === MessageType.UsherResponse) {
-    try {
-      browser.runtime.sendMessage(message);
-    } catch (error) {
-      console.error(
-        "[TTV LOL PRO] Failed to send UsherResponse message",
-        error
-      );
-    }
+  else if (message.type === MessageType.UpdateAdLog) {
+    const isDuplicate = store.state.adLog.some(entry => {
+      if (entry.channelName !== message.channelName) return false;
+      if (message.timestamp - entry.timestamp >= 60000) {
+        return false; // Entry is too old to be a duplicate (more than 1 minute).
+      }
+      if (entry.parsedLine != null && message.parsedLine != null) {
+        if (
+          entry.parsedLine.adCommercialId != null &&
+          message.parsedLine.adCommercialId != null
+        ) {
+          return (
+            entry.parsedLine.adCommercialId ===
+            message.parsedLine.adCommercialId
+          );
+        }
+        return (
+          entry.parsedLine.adLineItemId === message.parsedLine.adLineItemId
+        );
+      }
+      return entry.videoWeaverUrl === message.videoWeaverUrl;
+    });
+    if (isDuplicate) return;
+    store.state.adLog.push({
+      timestamp: message.timestamp,
+      channelName: message.channelName,
+      videoWeaverUrl: message.videoWeaverUrl,
+      rawLine: message.rawLine,
+      parsedLine: message.parsedLine,
+    });
+    await resolveAdIdentity(store.state.adLog.length - 1, 3000);
+    logger.log(
+      `Ad log updated (${store.state.adLog.length} entries):`,
+      store.state.adLog[store.state.adLog.length - 1]
+    );
   }
   // ---
-  else if (message.type === MessageType.MultipleAdBlockersInUse) {
+  else if (message.type === MessageType.ClearStats) {
+    clearStats(message.channelName, 2000);
+  }
+  // ---
+  else if (message.type === MessageType.ExtensionError) {
     const channelName = findChannelFromTwitchTvUrl(location.href);
     if (!channelName) return;
     const streamStatus = getStreamStatus(channelName);
     setStreamStatus(channelName, {
       ...(streamStatus ?? { proxied: false }),
-      reason: "Another Twitch ad blocker is in use",
+      reason: message.errorMessage,
     });
-  }
-  // ---
-  else if (message.type === MessageType.ClearStats) {
-    clearStats(message.channelName, 2000);
   }
 }

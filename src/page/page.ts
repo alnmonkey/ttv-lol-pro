@@ -1,7 +1,10 @@
+import { Mutex } from "async-mutex";
 import findChannelFromTwitchTvUrl from "../common/ts/findChannelFromTwitchTvUrl";
+import Logger from "../common/ts/Logger";
 import toAbsoluteUrl from "../common/ts/toAbsoluteUrl";
-import { MessageType } from "../types";
-import { getFetch } from "./getFetch";
+import { MessageType, ProxyRequestType } from "../types";
+import getFetch from "./getFetch";
+import getWorker from "./getWorker";
 import {
   getSendMessageToContentScript,
   getSendMessageToContentScriptAndWaitForResponse,
@@ -12,226 +15,230 @@ import {
 } from "./sendMessage";
 import type { PageState } from "./types";
 
-console.info("[TTV LOL PRO] Page script running.");
+const logger = new Logger("Page");
+const performanceNavigationEntry =
+  performance.getEntriesByType("navigation")[0];
+if (performanceNavigationEntry) {
+  logger.log(
+    `Page script running (injected after ${(
+      performance.now() - performanceNavigationEntry.startTime
+    ).toFixed(0)}ms since navigation start).`
+  );
+} else {
+  logger.log("Page script running.");
+}
 
-const params = JSON.parse(document.currentScript!.dataset.params!);
-
-const sendMessageToContentScript = getSendMessageToContentScript();
-const sendMessageToContentScriptAndWaitForResponse =
-  getSendMessageToContentScriptAndWaitForResponse();
-const sendMessageToPageScript = getSendMessageToPageScript();
-const sendMessageToPageScriptAndWaitForResponse =
-  getSendMessageToPageScriptAndWaitForResponse();
-const sendMessageToWorkerScripts = getSendMessageToWorkerScripts();
-const sendMessageToWorkerScriptsAndWaitForResponse =
-  getSendMessageToWorkerScriptsAndWaitForResponse();
-
-const pageState: PageState = {
-  isChromium: params.isChromium,
-  scope: "page",
-  state: undefined,
-  twitchWorkers: [],
-  sendMessageToContentScript,
-  sendMessageToContentScriptAndWaitForResponse,
-  sendMessageToPageScript,
-  sendMessageToPageScriptAndWaitForResponse,
-  sendMessageToWorkerScripts,
-  sendMessageToWorkerScriptsAndWaitForResponse,
-};
-
-const NATIVE_FETCH = window.fetch;
-window.fetch = getFetch(pageState);
-
-const NATIVE_WORKER = window.Worker;
-window.Worker = class Worker extends NATIVE_WORKER {
-  constructor(scriptURL: string | URL, options?: WorkerOptions) {
-    const fullUrl = toAbsoluteUrl(scriptURL.toString());
-    const isTwitchWorker = fullUrl.includes(".twitch.tv");
-    if (!isTwitchWorker) {
-      super(scriptURL, options);
-      return;
-    }
-    // Required for VAFT (>=12.0.0) compatibility.
-    const NATIVE_WORKER_STRING = NATIVE_WORKER.toString();
-    const isAlreadyHooked =
-      NATIVE_WORKER_STRING.includes("twitch") &&
-      (NATIVE_WORKER_STRING.includes("getAdBlockDiv") ||
-        NATIVE_WORKER_STRING.includes("getAdDiv"));
-    if (isAlreadyHooked) {
-      console.error("[TTV LOL PRO] Another Twitch ad blocker is in use.");
-      sendMessageToContentScript({
-        type: MessageType.MultipleAdBlockersInUse,
-      });
-      super(scriptURL, options);
-      return;
-    }
-    let script = "";
-    // Fetch Twitch's script, since Firefox Nightly errors out when trying to
-    // import a blob URL directly.
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", fullUrl, false);
-    xhr.send();
-    if (200 <= xhr.status && xhr.status < 300) {
-      script = xhr.responseText;
-    } else {
-      console.warn(`[TTV LOL PRO] Failed to fetch script: ${xhr.statusText}`);
-      script = `importScripts('${fullUrl}');`; // Will fail on Firefox Nightly.
-    }
-    // ---------------------------------------
-    // 🦊 Attention Firefox Addon Reviewer 🦊
-    // ---------------------------------------
-    // Please note that this does NOT involve remote code execution. The injected script is bundled
-    // with the extension. Additionally, there is no custom Content Security Policy (CSP) in use.
-    const newScript = `
-      var getParams = () => '${JSON.stringify(params)}';
-      try {
-        importScripts('${params.workerScriptURL}');
-      } catch (error) {
-        console.error('[TTV LOL PRO] Failed to load script: ${
-          params.workerScriptURL
-        }:', error);
+if (!document.documentElement.dataset.tlpParams) {
+  logger.log("Waiting for params from content script…");
+  waitForParams()
+    .then(params => {
+      if (performanceNavigationEntry) {
+        logger.log(
+          `Received params from content script (after ${(
+            performance.now() - performanceNavigationEntry.startTime
+          ).toFixed(0)}ms since navigation start).`
+        );
+      } else {
+        logger.log("Received params from content script.");
       }
-      ${script}
-    `;
-    const newScriptURL = URL.createObjectURL(
-      new Blob([newScript], { type: "text/javascript" })
-    );
-    // Required for VAFT (<9.0.0) compatibility.
-    const wrapperScript = `
-      try {
-        importScripts('${newScriptURL}');
-      } catch (error) {
-        console.warn('[TTV LOL PRO] Failed to wrap script: ${newScriptURL}:', error);
-        ${newScript}
-      }
-    `;
-    const wrapperScriptURL = URL.createObjectURL(
-      new Blob([wrapperScript], { type: "text/javascript" })
-    );
-    super(wrapperScriptURL, options);
-    pageState.twitchWorkers.push(this);
-    this.addEventListener("message", event => {
-      if (
-        event.data?.type === MessageType.ContentScriptMessage ||
-        event.data?.type === MessageType.PageScriptMessage
-      ) {
-        window.postMessage(event.data);
+      main(params);
+    })
+    .catch(error => {
+      logger.error("Failed to get params:", error);
+    });
+} else {
+  try {
+    main(JSON.parse(document.documentElement.dataset.tlpParams));
+  } catch (error) {
+    logger.error("Failed to parse params:", error);
+  }
+}
+
+async function waitForParams(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error("Timed out waiting for params."));
+    }, 10000); // 10 seconds timeout
+    const observer = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        if (
+          mutation.type === "attributes" &&
+          mutation.attributeName === "data-tlp-params" &&
+          document.documentElement.dataset.tlpParams
+        ) {
+          clearTimeout(timeout);
+          observer.disconnect();
+          try {
+            const params = JSON.parse(
+              document.documentElement.dataset.tlpParams
+            );
+            resolve(params);
+          } catch (error) {
+            reject(error);
+          }
+        }
       }
     });
-    // Can't revoke `newScriptURL` because of a conflict with VAFT.
-    URL.revokeObjectURL(wrapperScriptURL);
-  }
-};
-
-let sendStoreStateToWorker = false;
-window.addEventListener("message", event => {
-  // Relay messages from the content script to the worker script.
-  if (event.data?.type === MessageType.WorkerScriptMessage) {
-    sendMessageToWorkerScripts(pageState.twitchWorkers, event.data.message);
-    return;
-  }
-
-  if (!event.data || event.data.type !== MessageType.PageScriptMessage) return;
-
-  const { message } = event.data;
-  if (!message) return;
-
-  switch (message.type) {
-    case MessageType.GetStoreState: // From Worker
-      if (pageState.state != null) {
-        sendMessageToWorkerScripts(pageState.twitchWorkers, {
-          type: MessageType.GetStoreStateResponse,
-          state: pageState.state,
-        });
-      }
-      sendStoreStateToWorker = true;
-      break;
-    case MessageType.GetStoreStateResponse: // From Content
-      if (pageState.state == null) {
-        console.log("[TTV LOL PRO] Received store state from content script.");
-      } else {
-        console.debug(
-          "[TTV LOL PRO] Received store state from content script."
-        );
-      }
-      const state = message.state;
-      pageState.state = state;
-      if (sendStoreStateToWorker) {
-        sendMessageToWorkerScripts(pageState.twitchWorkers, {
-          type: MessageType.GetStoreStateResponse,
-          state,
-        });
-      }
-      break;
-  }
-});
-
-function onChannelChange(
-  callback: (channelName: string, oldChannelName: string | null) => void
-) {
-  let channelName: string | null = findChannelFromTwitchTvUrl(location.href);
-
-  const NATIVE_PUSH_STATE = window.history.pushState;
-  function pushState(
-    data: any,
-    unused: string,
-    url?: string | URL | null | undefined
-  ) {
-    if (!url) return NATIVE_PUSH_STATE.call(window.history, data, unused);
-    const fullUrl = toAbsoluteUrl(url.toString());
-    const newChannelName = findChannelFromTwitchTvUrl(fullUrl);
-    if (newChannelName != null && newChannelName !== channelName) {
-      const oldChannelName = channelName;
-      channelName = newChannelName;
-      callback(channelName, oldChannelName);
-    }
-    return NATIVE_PUSH_STATE.call(window.history, data, unused, url);
-  }
-  window.history.pushState = pushState;
-
-  const NATIVE_REPLACE_STATE = window.history.replaceState;
-  function replaceState(
-    data: any,
-    unused: string,
-    url?: string | URL | null | undefined
-  ) {
-    if (!url) return NATIVE_REPLACE_STATE.call(window.history, data, unused);
-    const fullUrl = toAbsoluteUrl(url.toString());
-    const newChannelName = findChannelFromTwitchTvUrl(fullUrl);
-    if (newChannelName != null && newChannelName !== channelName) {
-      const oldChannelName = channelName;
-      channelName = newChannelName;
-      callback(channelName, oldChannelName);
-    }
-    return NATIVE_REPLACE_STATE.call(window.history, data, unused, url);
-  }
-  window.history.replaceState = replaceState;
-
-  window.addEventListener("popstate", () => {
-    const newChannelName = findChannelFromTwitchTvUrl(location.href);
-    if (newChannelName != null && newChannelName !== channelName) {
-      const oldChannelName = channelName;
-      channelName = newChannelName;
-      callback(channelName, oldChannelName);
-    }
+    observer.observe(document.documentElement, { attributes: true });
   });
 }
 
-onChannelChange((_channelName, oldChannelName) => {
+async function main(params: any) {
+  delete document.documentElement.dataset.tlpParams;
+
+  const broadcastChannel = new BroadcastChannel(params.broadcastChannelName);
+  const sendMessageToContentScript =
+    getSendMessageToContentScript(broadcastChannel);
+  const sendMessageToContentScriptAndWaitForResponse =
+    getSendMessageToContentScriptAndWaitForResponse(broadcastChannel);
+  const sendMessageToPageScript = getSendMessageToPageScript(broadcastChannel);
+  const sendMessageToPageScriptAndWaitForResponse =
+    getSendMessageToPageScriptAndWaitForResponse(broadcastChannel);
+  const sendMessageToWorkerScripts =
+    getSendMessageToWorkerScripts(broadcastChannel);
+  const sendMessageToWorkerScriptsAndWaitForResponse =
+    getSendMessageToWorkerScriptsAndWaitForResponse(broadcastChannel);
+
+  const pageState: PageState = {
+    params: params,
+    isChromium: params.isChromium,
+    scope: "page",
+    state: undefined,
+    requestTypeMutexes: {
+      [ProxyRequestType.Passport]: new Mutex(),
+      [ProxyRequestType.Usher]: new Mutex(),
+      [ProxyRequestType.VideoWeaver]: new Mutex(),
+      [ProxyRequestType.GraphQL]: new Mutex(),
+      [ProxyRequestType.GraphQLToken]: new Mutex(),
+      [ProxyRequestType.GraphQLIntegrity]: new Mutex(),
+      [ProxyRequestType.GraphQLAll]: new Mutex(),
+      [ProxyRequestType.TwitchWebpage]: new Mutex(),
+    },
+    twitchWorkers: [], // No longer used. Might be useful in the future?
+    sendMessageToContentScript,
+    sendMessageToContentScriptAndWaitForResponse,
+    sendMessageToPageScript,
+    sendMessageToPageScriptAndWaitForResponse,
+    sendMessageToWorkerScripts,
+    sendMessageToWorkerScriptsAndWaitForResponse,
+  };
+
+  const newFetch = getFetch(pageState);
+  window.fetch = newFetch;
+  if (window.fetch !== newFetch) {
+    logger.error("Failed to replace fetch.");
+    sendMessageToContentScript({
+      type: MessageType.ExtensionError,
+      errorMessage:
+        "Failed to replace fetch. Are you using another Twitch extension?",
+    });
+  } else {
+    logger.log("fetch replaced successfully.");
+  }
+
+  const newWorker = getWorker(pageState);
+  if (newWorker !== null) {
+    window.Worker = newWorker;
+    if (window.Worker !== newWorker) {
+      logger.error("Failed to replace Worker.");
+      sendMessageToContentScript({
+        type: MessageType.ExtensionError,
+        errorMessage:
+          "Failed to replace Worker. Are you using another Twitch ad blocker?",
+      });
+    } else {
+      logger.log("Worker replaced successfully.");
+    }
+  }
+
+  broadcastChannel.addEventListener("message", event => {
+    if (!event.data || event.data.type !== MessageType.PageScriptMessage) {
+      return;
+    }
+
+    const { message } = event.data;
+    if (!message) return;
+
+    switch (message.type) {
+      case MessageType.GetStoreStateResponse:
+        if (pageState.state == null) {
+          logger.log("Received store state from content script.");
+        } else {
+          logger.debug("Received store state from content script.");
+        }
+        const state = message.state;
+        pageState.state = state;
+        break;
+    }
+  });
   sendMessageToContentScript({
-    type: MessageType.ClearStats,
-    channelName: oldChannelName,
+    type: MessageType.GetStoreState,
+    from: pageState.scope,
   });
-  sendMessageToPageScript({
-    type: MessageType.ClearStats,
-    channelName: oldChannelName,
-  });
-  sendMessageToWorkerScripts(pageState.twitchWorkers, {
-    type: MessageType.ClearStats,
-    channelName: oldChannelName,
-  });
-});
 
-sendMessageToContentScript({ type: MessageType.GetStoreState });
+  function onChannelChange(
+    callback: (channelName: string, oldChannelName: string | null) => void
+  ) {
+    let channelName: string | null = findChannelFromTwitchTvUrl(location.href);
 
-document.currentScript!.remove();
+    const NATIVE_PUSH_STATE = window.history.pushState;
+    function pushState(
+      data: any,
+      unused: string,
+      url?: string | URL | null | undefined
+    ) {
+      if (!url) return NATIVE_PUSH_STATE.call(window.history, data, unused);
+      const fullUrl = toAbsoluteUrl(url.toString());
+      const newChannelName = findChannelFromTwitchTvUrl(fullUrl);
+      if (newChannelName != null && newChannelName !== channelName) {
+        const oldChannelName = channelName;
+        channelName = newChannelName;
+        callback(channelName, oldChannelName);
+      }
+      return NATIVE_PUSH_STATE.call(window.history, data, unused, url);
+    }
+    window.history.pushState = pushState;
+
+    const NATIVE_REPLACE_STATE = window.history.replaceState;
+    function replaceState(
+      data: any,
+      unused: string,
+      url?: string | URL | null | undefined
+    ) {
+      if (!url) return NATIVE_REPLACE_STATE.call(window.history, data, unused);
+      const fullUrl = toAbsoluteUrl(url.toString());
+      const newChannelName = findChannelFromTwitchTvUrl(fullUrl);
+      if (newChannelName != null && newChannelName !== channelName) {
+        const oldChannelName = channelName;
+        channelName = newChannelName;
+        callback(channelName, oldChannelName);
+      }
+      return NATIVE_REPLACE_STATE.call(window.history, data, unused, url);
+    }
+    window.history.replaceState = replaceState;
+
+    window.addEventListener("popstate", () => {
+      const newChannelName = findChannelFromTwitchTvUrl(location.href);
+      if (newChannelName != null && newChannelName !== channelName) {
+        const oldChannelName = channelName;
+        channelName = newChannelName;
+        callback(channelName, oldChannelName);
+      }
+    });
+  }
+  onChannelChange((_channelName, oldChannelName) => {
+    sendMessageToContentScript({
+      type: MessageType.ClearStats,
+      channelName: oldChannelName,
+    });
+    sendMessageToPageScript({
+      type: MessageType.ClearStats,
+      channelName: oldChannelName,
+    });
+    sendMessageToWorkerScripts({
+      type: MessageType.ClearStats,
+      channelName: oldChannelName,
+    });
+  });
+}

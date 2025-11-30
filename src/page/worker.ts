@@ -1,5 +1,7 @@
-import { MessageType } from "../types";
-import { getFetch } from "./getFetch";
+import { Mutex } from "async-mutex";
+import Logger from "../common/ts/Logger";
+import { MessageType, ProxyRequestType } from "../types";
+import getFetch from "./getFetch";
 import {
   getSendMessageToContentScript,
   getSendMessageToContentScriptAndWaitForResponse,
@@ -10,31 +12,46 @@ import {
 } from "./sendMessage";
 import type { PageState } from "./types";
 
-console.info("[TTV LOL PRO] Worker script running.");
+const logger = new Logger("Worker");
+logger.log("Worker script running.");
 
 declare var getParams: () => string;
 let params;
 try {
   params = JSON.parse(getParams()!);
 } catch (error) {
-  console.error("[TTV LOL PRO] Failed to parse params:", error);
+  logger.error("Failed to parse params:", error);
 }
 getParams = undefined as any;
 
-const sendMessageToContentScript = getSendMessageToContentScript();
+const broadcastChannel = new BroadcastChannel(params.broadcastChannelName);
+const sendMessageToContentScript =
+  getSendMessageToContentScript(broadcastChannel);
 const sendMessageToContentScriptAndWaitForResponse =
-  getSendMessageToContentScriptAndWaitForResponse();
-const sendMessageToPageScript = getSendMessageToPageScript();
+  getSendMessageToContentScriptAndWaitForResponse(broadcastChannel);
+const sendMessageToPageScript = getSendMessageToPageScript(broadcastChannel);
 const sendMessageToPageScriptAndWaitForResponse =
-  getSendMessageToPageScriptAndWaitForResponse();
-const sendMessageToWorkerScripts = getSendMessageToWorkerScripts();
+  getSendMessageToPageScriptAndWaitForResponse(broadcastChannel);
+const sendMessageToWorkerScripts =
+  getSendMessageToWorkerScripts(broadcastChannel);
 const sendMessageToWorkerScriptsAndWaitForResponse =
-  getSendMessageToWorkerScriptsAndWaitForResponse();
+  getSendMessageToWorkerScriptsAndWaitForResponse(broadcastChannel);
 
 const pageState: PageState = {
+  params: params,
   isChromium: params.isChromium,
   scope: "worker",
   state: undefined,
+  requestTypeMutexes: {
+    [ProxyRequestType.Passport]: new Mutex(),
+    [ProxyRequestType.Usher]: new Mutex(),
+    [ProxyRequestType.VideoWeaver]: new Mutex(),
+    [ProxyRequestType.GraphQL]: new Mutex(),
+    [ProxyRequestType.GraphQLToken]: new Mutex(),
+    [ProxyRequestType.GraphQLIntegrity]: new Mutex(),
+    [ProxyRequestType.GraphQLAll]: new Mutex(),
+    [ProxyRequestType.TwitchWebpage]: new Mutex(),
+  },
   twitchWorkers: [], // Always empty in workers.
   sendMessageToContentScript,
   sendMessageToContentScriptAndWaitForResponse,
@@ -44,9 +61,20 @@ const pageState: PageState = {
   sendMessageToWorkerScriptsAndWaitForResponse,
 };
 
-self.fetch = getFetch(pageState);
+const newFetch = getFetch(pageState);
+self.fetch = newFetch;
+if (self.fetch !== newFetch) {
+  logger.error("Failed to replace fetch.");
+  sendMessageToContentScript({
+    type: MessageType.ExtensionError,
+    errorMessage:
+      "Failed to replace fetch. Are you using another Twitch extension?",
+  });
+} else {
+  logger.log("fetch replaced successfully.");
+}
 
-self.addEventListener("message", event => {
+broadcastChannel.addEventListener("message", event => {
   if (!event.data || event.data.type !== MessageType.WorkerScriptMessage) {
     return;
   }
@@ -55,16 +83,18 @@ self.addEventListener("message", event => {
   if (!message) return;
 
   switch (message.type) {
-    case MessageType.GetStoreStateResponse: // From Page
+    case MessageType.GetStoreStateResponse:
       if (pageState.state == null) {
-        console.log("[TTV LOL PRO] Received store state from page script.");
+        logger.log("Received store state from content script.");
       } else {
-        console.debug("[TTV LOL PRO] Received store state from page script.");
+        logger.debug("Received store state from content script.");
       }
       const state = message.state;
       pageState.state = state;
       break;
   }
 });
-
-sendMessageToPageScript({ type: MessageType.GetStoreState });
+sendMessageToContentScript({
+  type: MessageType.GetStoreState,
+  from: pageState.scope,
+});
