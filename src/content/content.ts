@@ -106,10 +106,12 @@ function onBackgroundMessage(message: any): undefined {
   if (!message || !message.type) return;
 
   if (
-    message.type === MessageType.EnableFullModeResponse ||
-    message.type === MessageType.DisableFullModeResponse
+    [
+      MessageType.EnableFullModeResponse,
+      MessageType.DisableFullModeResponse,
+    ].includes(message.type)
   ) {
-    // Forward the message to the page script and worker script(s).
+    // Forward to page script and worker script(s).
     broadcastChannel.postMessage({
       type: MessageType.PageScriptMessage,
       message,
@@ -129,54 +131,49 @@ async function onPageMessage(event: MessageEvent) {
   const { message } = event.data;
   if (!message) return;
 
+  if (
+    [
+      MessageType.EnableFullMode,
+      MessageType.DisableFullMode,
+      MessageType.UsherResponse,
+    ].includes(message.type)
+  ) {
+    // Forward to background script.
+    try {
+      browser.runtime.sendMessage(message);
+    } catch (error) {
+      logger.error(`Failed to send '${message.type}' message:`, error);
+    }
+    return;
+  }
+
+  if (store.readyState !== "complete") {
+    // Wait for the store to be loaded.
+    await new Promise<void>(resolve => {
+      store.addEventListener("load", () => resolve());
+    });
+  }
+
   if (message.type === MessageType.GetStoreState) {
-    const sendStoreState = () => {
-      const state = JSON.parse(JSON.stringify(store.state));
-      const from: PageState["scope"] | undefined = message.from;
-      if (from !== "worker") {
-        broadcastChannel.postMessage({
-          type: MessageType.PageScriptMessage,
-          message: {
-            type: MessageType.GetStoreStateResponse,
-            state,
-          },
-        });
-      }
-      if (from !== "page") {
-        broadcastChannel.postMessage({
-          type: MessageType.WorkerScriptMessage,
-          message: {
-            type: MessageType.GetStoreStateResponse,
-            state,
-          },
-        });
-      }
-    };
-    if (store.readyState === "complete") sendStoreState();
-    else store.addEventListener("load", sendStoreState);
-  }
-  // ---
-  else if (message.type === MessageType.EnableFullMode) {
-    try {
-      browser.runtime.sendMessage(message);
-    } catch (error) {
-      logger.error("Failed to send EnableFullMode message:", error);
+    const state = JSON.parse(JSON.stringify(store.state));
+    const from: PageState["scope"] | undefined = message.from;
+    if (from !== "worker") {
+      broadcastChannel.postMessage({
+        type: MessageType.PageScriptMessage,
+        message: {
+          type: MessageType.GetStoreStateResponse,
+          state,
+        },
+      });
     }
-  }
-  // ---
-  else if (message.type === MessageType.DisableFullMode) {
-    try {
-      browser.runtime.sendMessage(message);
-    } catch (error) {
-      logger.error("Failed to send DisableFullMode message:", error);
-    }
-  }
-  // ---
-  else if (message.type === MessageType.UsherResponse) {
-    try {
-      browser.runtime.sendMessage(message);
-    } catch (error) {
-      logger.error("Failed to send UsherResponse message:", error);
+    if (from !== "page") {
+      broadcastChannel.postMessage({
+        type: MessageType.WorkerScriptMessage,
+        message: {
+          type: MessageType.GetStoreStateResponse,
+          state,
+        },
+      });
     }
   }
   // ---
