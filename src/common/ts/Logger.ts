@@ -1,5 +1,6 @@
 export default class Logger {
   private readonly _prefix: string;
+  private _debugOnceKeys: Set<string> = new Set();
 
   constructor(context?: string) {
     this._prefix = context ? `[TTV LOL PRO] (${context})` : "[TTV LOL PRO]";
@@ -19,5 +20,12 @@ export default class Logger {
 
   debug(...data: any[]) {
     console.debug(this._prefix, ...data);
+  }
+
+  debugOnce(key: string, ...data: any[]) {
+    if (!this._debugOnceKeys.has(key)) {
+      this._debugOnceKeys.add(key);
+      this.debug(...data);
+    }
   }
 }
