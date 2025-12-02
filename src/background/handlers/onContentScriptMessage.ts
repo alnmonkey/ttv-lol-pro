@@ -1,4 +1,5 @@
 import browser, { Runtime } from "webextension-polyfill";
+import isChromium from "../../common/ts/isChromium";
 import { updateProxySettings } from "../../common/ts/proxySettings";
 import { getStreamStatus, setStreamStatus } from "../../common/ts/streamStatus";
 import store from "../../store";
@@ -30,7 +31,7 @@ export default function onContentScriptMessage(
       requestType,
       setTimeout(() => {
         timeoutMap.delete(requestType);
-        if (store.state.chromiumProxyActive) {
+        if (isChromium && store.state.chromiumProxyActive) {
           updateProxySettings([...timeoutMap.keys()]);
         }
         console.log(
@@ -50,7 +51,7 @@ export default function onContentScriptMessage(
         }
       }, timeoutMs)
     );
-    if (store.state.chromiumProxyActive) {
+    if (isChromium && store.state.chromiumProxyActive) {
       updateProxySettings([...timeoutMap.keys()]);
     }
 
@@ -79,7 +80,7 @@ export default function onContentScriptMessage(
       clearTimeout(timeoutMap.get(requestType));
       timeoutMap.delete(requestType);
     }
-    if (store.state.chromiumProxyActive) {
+    if (isChromium && store.state.chromiumProxyActive) {
       updateProxySettings([...timeoutMap.keys()]);
     }
 
