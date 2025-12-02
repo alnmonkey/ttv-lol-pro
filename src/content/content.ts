@@ -150,7 +150,11 @@ async function onPageMessage(event: MessageEvent) {
   if (store.readyState !== "complete") {
     // Wait for the store to be loaded.
     await new Promise<void>(resolve => {
-      store.addEventListener("load", () => resolve());
+      const listener = () => {
+        store.removeEventListener("load", listener);
+        resolve();
+      };
+      store.addEventListener("load", listener);
     });
   }
 

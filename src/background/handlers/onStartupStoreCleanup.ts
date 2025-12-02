@@ -10,7 +10,7 @@ import store from "../../store";
  */
 export default function onStartupStoreCleanup(): void {
   if (store.readyState !== "complete")
-    return store.addEventListener("load", onStartupStoreCleanup);
+    return store.addEventListener("load", () => onStartupStoreCleanup());
 
   const now = Date.now();
   store.state.adLog = store.state.adLog.filter(
