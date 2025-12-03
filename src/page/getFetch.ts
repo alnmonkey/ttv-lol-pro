@@ -1333,7 +1333,7 @@ async function fetchReplacementUsherManifest(
 }
 
 /**
- * Parses a Usher response and returns a map of video quality to URL.
+ * Parses a Usher response and returns a map of stream quality to Video Weaver URL.
  * @param manifest
  * @returns
  */
@@ -1345,12 +1345,57 @@ function parseUsherManifest(manifest: string): Map<string, string> | null {
   if (!parsedManifest.playlists || parsedManifest.playlists.length === 0) {
     return null;
   }
+
+  type Playlist = (typeof parsedManifest.playlists)[number];
+  const getPlaylistAttribute = <T>(playlist: Playlist, attribute: string) =>
+    playlist.attributes[attribute] as T | undefined;
+  const getPlaylistKey = (playlist: Playlist, index: number): string => {
+    let key = "";
+    const resolution = getPlaylistAttribute<{ width: number; height: number }>(
+      playlist,
+      "RESOLUTION"
+    );
+    if (resolution?.height == null) return `idx_${index.toString()}`;
+    key += `${resolution.height}p`;
+    const frameRate = getPlaylistAttribute<number>(playlist, "FRAME-RATE");
+    if (frameRate != null) key += Math.round(frameRate).toString();
+    // Add source suffix for source quality streams.
+    const ivsVariantSource = getPlaylistAttribute<string>(
+      playlist,
+      "IVS-VARIANT-SOURCE"
+    ); // Usher V2 API
+    const video = getPlaylistAttribute<string>(playlist, "VIDEO"); // Usher V1 API
+    if (ivsVariantSource === "source" || video === "chunked") {
+      key += "_source";
+    }
+    return key;
+  };
+
+  // Sort playlists by SCORE in descending order.
+  const playlists = parsedManifest.playlists.sort((a, b) => {
+    const aScore = getPlaylistAttribute<number>(a, "SCORE");
+    const bScore = getPlaylistAttribute<number>(b, "SCORE");
+    if (aScore && bScore) return bScore - aScore;
+    return b.uri.length - a.uri.length;
+  });
+  const playlistsKeys = playlists.map((playlist, index) =>
+    getPlaylistKey(playlist, index)
+  );
+  // Add suffixes to duplicate keys.
+  const indicesByKey = new Map<string, number[]>();
+  playlistsKeys.forEach((key, index) => {
+    if (!indicesByKey.has(key)) indicesByKey.set(key, []);
+    indicesByKey.get(key)!.push(index);
+  });
+  for (const [key, indices] of indicesByKey.entries()) {
+    if (indices.length <= 1) continue;
+    indices.forEach((originalIndex, duplicateIndex) => {
+      playlistsKeys[originalIndex] = `${key}_${duplicateIndex}`;
+    });
+  }
+
   return new Map(
-    parsedManifest.playlists.map(playlist => [
-      (playlist.attributes["STABLE-VARIANT-ID"] ?? // V2 API
-        playlist.attributes["VIDEO"]) as string, // V1 API
-      playlist.uri,
-    ])
+    playlists.map((playlist, index) => [playlistsKeys[index], playlist.uri])
   );
 }
 
