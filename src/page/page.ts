@@ -80,7 +80,9 @@ async function waitForParams(): Promise<any> {
         }
       }
     });
-    observer.observe(document.documentElement, { attributes: true });
+    observer.observe(document.documentElement, {
+      attributeFilter: ["data-tlp-params"],
+    });
   });
 }
 
