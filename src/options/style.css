@@ -4,8 +4,8 @@
   --container-box-shadow-color: #0c0c0e;
   --container-width: 1100px;
 
-  --font-primary: "Inter", "Roobert", "Helvetica Neue", Helvetica, Arial,
-    sans-serif;
+  --font-primary:
+    "Inter", "Roobert", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --logo-size: 2.5rem;
 
   --brand-color: #aa51b8;
@@ -446,8 +446,8 @@ input[type="radio"]:not(:checked) ~ .store-list {
   background-color: var(--input-background-color);
 }
 #passport-level-proxy-usage:has(
-    #passport-level-proxy-usage-summary:focus-visible
-  ) {
+  #passport-level-proxy-usage-summary:focus-visible
+) {
   outline-style: solid;
   outline-width: 1px;
 }
@@ -472,7 +472,9 @@ input[type="radio"]:not(:checked) ~ .store-list {
   padding: 0.5rem;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: background-color 100ms ease-in-out, color 100ms ease-in-out;
+  transition:
+    background-color 100ms ease-in-out,
+    color 100ms ease-in-out;
 }
 #passport-level-proxy-usage-summary::marker {
   content: none;

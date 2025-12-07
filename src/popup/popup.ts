@@ -382,9 +382,9 @@ copyDebugInfoButtonElement.addEventListener("click", async e => {
                   }\n`,
                   `- Country: ${
                     status.proxyCountry
-                      ? (alpha2 as Record<string, string>)[
+                      ? ((alpha2 as Record<string, string>)[
                           status.proxyCountry
-                        ] ?? status.proxyCountry
+                        ] ?? status.proxyCountry)
                       : "N/A"
                   }\n`,
                 ].join("")
