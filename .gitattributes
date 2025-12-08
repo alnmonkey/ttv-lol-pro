@@ -1,5 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
-# Set language for config files with unconventional extensions
+# Set language for config files with unspecific extensions
 .parcelrc linguist-language=JSON
 .prettierrc linguist-language=JSON
