@@ -126,6 +126,7 @@ async function main(params: any) {
     sendMessageToWorkerScriptsAndWaitForResponse,
   };
 
+  const originalFetch = window.fetch;
   const newFetch = getFetch(pageState);
   window.fetch = newFetch;
   if (window.fetch !== newFetch) {
@@ -151,6 +152,14 @@ async function main(params: any) {
       });
     } else {
       logger.log("Worker replaced successfully.");
+    }
+  }
+  if (newWorker === null || window.Worker !== newWorker) {
+    if (window.fetch === newFetch) {
+      logger.warn(
+        "Reverting fetch replacement due to Worker replacement failure."
+      );
+      window.fetch = originalFetch;
     }
   }
 
