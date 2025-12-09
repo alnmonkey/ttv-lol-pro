@@ -1,0 +1,7 @@
+{
+  "arrowParens": "avoid",
+  "cssDeclarationSorterOrder": "smacss",
+  "endOfLine": "auto",
+  "plugins": ["prettier-plugin-css-order", "prettier-plugin-organize-imports"],
+  "trailingComma": "es5"
+}

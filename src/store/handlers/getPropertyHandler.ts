@@ -3,7 +3,7 @@ import { ProxyFlags, StorageAreaName } from "../types";
 import { toRaw } from "../utils";
 
 export default function getPropertyHandler<
-  T extends Record<string | symbol, any>
+  T extends Record<string | symbol, any>,
 >(
   areaName: StorageAreaName,
   state: T,

@@ -20,12 +20,12 @@ import { ProxyInfo, ProxyRequestType } from "../../types";
 export default async function onProxyRequest(
   details: Proxy.OnRequestDetailsType
 ): Promise<ProxyInfo | ProxyInfo[]> {
-  // Wait for the store to be ready.
+  // Wait for the store to be loaded.
   if (store.readyState !== "complete") {
-    await new Promise(resolve => {
+    await new Promise<void>(resolve => {
       const listener = () => {
         store.removeEventListener("load", listener);
-        resolve(onProxyRequest(details));
+        resolve();
       };
       store.addEventListener("load", listener);
     });

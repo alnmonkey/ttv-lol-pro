@@ -2,9 +2,9 @@ import setupPageURL from "url:../../setup/page.html";
 import browser, { Runtime } from "webextension-polyfill";
 import store from "../../store";
 
-export default async function onInstalled(
+export default function onInstalled(
   details: Runtime.OnInstalledDetailsType
-): Promise<void> {
+): void {
   if (store.readyState !== "complete")
     return store.addEventListener("load", () => onInstalled(details));
 

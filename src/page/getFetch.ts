@@ -16,7 +16,6 @@ import {
 import { MessageType, ProxyRequestType } from "../types";
 import type { PageState, PlaybackAccessToken, UsherManifest } from "./types";
 
-const IS_DEVELOPMENT = process.env.NODE_ENV === "development";
 const NATIVE_FETCH = self.fetch;
 const logger = new Logger("fetch");
 
@@ -116,7 +115,8 @@ export default function getFetch(pageState: PageState): typeof fetch {
   });
 
   // // Test Video Weaver URL replacement.
-  // if (IS_DEVELOPMENT && pageState.scope === "worker") {
+  // const isDevelopment = process.env.NODE_ENV === "development";
+  // if (isDevelopment && pageState.scope === "worker") {
   //   setTimeout(async () => {
   //     await waitForStore(pageState);
   //     try {
@@ -207,7 +207,7 @@ export default function getFetch(pageState: PageState): typeof fetch {
           (query: any) => {
             const channelName = query?.variables?.login as string | undefined;
             if (!channelName) return false;
-            const isLivestream = !/\^\d+$/.test(channelName); // VODs have numeric IDs.
+            const isLivestream = !/^\d+$/.test(channelName); // VODs have numeric IDs.
             const isFrontpage = query?.variables?.playerType === "frontpage";
             const isWhitelisted = isChannelWhitelisted(channelName, pageState);
             return isLivestream && !isFrontpage && !isWhitelisted;
@@ -304,52 +304,42 @@ export default function getFetch(pageState: PageState): typeof fetch {
           setHeaderToMapIfExists("X-Device-Id", generateRandomString(32));
         }
 
-        if (tokenQueriesToProxy.size === allQueries.length) {
-          const tokenQueriesToProxyValues = [...tokenQueriesToProxy.values()];
-          request = new Request(url, {
-            ...init,
-            headers: Object.fromEntries(headersMap),
-            body: JSON.stringify(
-              isGraphQlBodyArray
-                ? tokenQueriesToProxyValues
-                : tokenQueriesToProxyValues[0] // Preserve original structure.
-            ),
-          });
-        } else {
-          logger.log(
-            "Splitting *PlaybackAccessToken* request into proxied and non-proxied requests…"
-          );
-          // Current request becomes the proxied request.
-          request = new Request(url, {
-            ...init,
-            headers: Object.fromEntries(headersMap),
-            // Splitting logic requires array body even for single queries.
-            body: JSON.stringify([...tokenQueriesToProxy.values()]),
-          });
-          // Split request becomes the non-proxied request.
-          splitRequest = new Request(url, {
-            ...init,
-            body: JSON.stringify([
-              ...tokenQueriesNotToProxy.values(),
-              ...otherQueries.values(),
-            ]),
-          });
-          splitIndexMap = [
-            new Map(
-              [...tokenQueriesToProxy.keys()].map((originalIndex, index) => [
-                index,
-                originalIndex,
-              ])
-            ),
-            new Map(
-              [...tokenQueriesNotToProxy.keys(), ...otherQueries.keys()].map(
-                (originalIndex, index) => [index, originalIndex]
-              )
-            ),
-          ];
-        }
-        // Notice that if anonymous mode fails, we still flag the request to avoid ads.
         if (shouldFlagRequest && !willFailIntegrityCheckIfProxied) {
+          // Split the request if it contains non-proxied queries.
+          if (tokenQueriesToProxy.size !== allQueries.length) {
+            logger.log(
+              "Splitting *PlaybackAccessToken* request into proxied and non-proxied requests…"
+            );
+            // Current request becomes the proxied request.
+            request = new Request(url, {
+              ...init,
+              headers: Object.fromEntries(headersMap),
+              // Splitting logic requires array body even for single queries.
+              body: JSON.stringify([...tokenQueriesToProxy.values()]),
+            });
+            // Split request becomes the non-proxied request.
+            splitRequest = new Request(url, {
+              ...init,
+              body: JSON.stringify([
+                ...tokenQueriesNotToProxy.values(),
+                ...otherQueries.values(),
+              ]),
+            });
+            splitIndexMap = [
+              new Map(
+                [...tokenQueriesToProxy.keys()].map((originalIndex, index) => [
+                  index,
+                  originalIndex,
+                ])
+              ),
+              new Map(
+                [...tokenQueriesNotToProxy.keys(), ...otherQueries.keys()].map(
+                  (originalIndex, index) => [index, originalIndex]
+                )
+              ),
+            ];
+          }
+
           logger.log("Flagging *PlaybackAccessToken* request…");
           isFlaggedRequest = true;
         }
@@ -443,11 +433,10 @@ export default function getFetch(pageState: PageState): typeof fetch {
         );
       }
       if (videoWeaverUrlsToNotProxy.has(url)) {
-        if (IS_DEVELOPMENT) {
-          logger.debug(
-            `Not flagging request to Video Weaver URL '${url}': is frontpage or is whitelisted.`
-          );
-        }
+        logger.debugOnce(
+          `${url}_not_proxied`,
+          `Not flagging request to Video Weaver URL '${url}': is frontpage or is whitelisted.`
+        );
         break weaverReq;
       }
 
@@ -459,11 +448,10 @@ export default function getFetch(pageState: PageState): typeof fetch {
         )?.[0];
         if (videoQuality != null && manifest.replacementMap.has(videoQuality)) {
           videoWeaverUrl = manifest.replacementMap.get(videoQuality)!;
-          if (IS_DEVELOPMENT) {
-            logger.debug(
-              `Replaced Video Weaver URL '${url}' with '${videoWeaverUrl}'.`
-            );
-          }
+          logger.debugOnce(
+            `${videoWeaverUrl}_replacement`,
+            `Replaced Video Weaver URL '${url}' with '${videoWeaverUrl}'.`
+          );
         } else if (manifest.replacementMap.size > 0) {
           videoWeaverUrl = [...manifest.replacementMap.values()][0];
           logger.warn(
@@ -478,11 +466,10 @@ export default function getFetch(pageState: PageState): typeof fetch {
           ...init,
         });
         if (videoWeaverUrlsToNotProxy.has(videoWeaverUrl)) {
-          if (IS_DEVELOPMENT) {
-            logger.debug(
-              `Not flagging request to replacement Video Weaver URL '${videoWeaverUrl}': is non-proxied stream.`
-            );
-          }
+          logger.debugOnce(
+            `${videoWeaverUrl}_replacement_not_proxied`,
+            `Not flagging request to replacement Video Weaver URL '${videoWeaverUrl}': is non-proxied stream.`
+          );
           break weaverReq;
         }
       }
@@ -827,7 +814,11 @@ export default function getFetch(pageState: PageState): typeof fetch {
       //#endregion
 
       //#region Ad log.
-      if (responseIncludesAd && pageState.state?.adLogEnabled === true) {
+      if (
+        responseIncludesAd &&
+        pageState.state?.adLogEnabled === true &&
+        !videoWeaverUrlsToNotProxy.has(url)
+      ) {
         const lines = responseBody.split("\n");
         const adLines = lines.filter(line => {
           const lineLower = line.toLowerCase();
@@ -1342,7 +1333,7 @@ async function fetchReplacementUsherManifest(
 }
 
 /**
- * Parses a Usher response and returns a map of video quality to URL.
+ * Parses a Usher response and returns a map of video quality to Video Weaver URL.
  * @param manifest
  * @returns
  */
@@ -1350,17 +1341,51 @@ function parseUsherManifest(manifest: string): Map<string, string> | null {
   const parser = new m3u8Parser.Parser();
   parser.push(manifest);
   parser.end();
-  const parsedManifest = parser.manifest;
-  if (!parsedManifest.playlists || parsedManifest.playlists.length === 0) {
+  const playlists = parser.manifest.playlists;
+  if (!playlists || playlists.length === 0) {
     return null;
   }
-  return new Map(
-    parsedManifest.playlists.map(playlist => [
-      (playlist.attributes["STABLE-VARIANT-ID"] ?? // V2 API
-        playlist.attributes["VIDEO"]) as string, // V1 API
-      playlist.uri,
-    ])
-  );
+
+  type ParsedAttributes = {
+    resolution?: { width: number; height: number };
+    frameRate?: number;
+    score?: number;
+  };
+  const getParsedAttributes = (
+    playlist: (typeof playlists)[number]
+  ): ParsedAttributes => {
+    return {
+      resolution: playlist.attributes["RESOLUTION"],
+      frameRate: playlist.attributes["FRAME-RATE"],
+      score: playlist.attributes["SCORE"],
+    } as ParsedAttributes;
+  };
+
+  const keyCount = new Map<string, number>();
+  const parsedManifest = new Map<string, string>();
+
+  const playlistAttributes = playlists.map(playlist => ({
+    playlist,
+    attributes: getParsedAttributes(playlist),
+  }));
+  playlistAttributes.sort((a, b) => {
+    if (a.attributes.score && b.attributes.score) {
+      return b.attributes.score - a.attributes.score;
+    }
+    return b.playlist.uri.length - a.playlist.uri.length;
+  });
+  playlistAttributes.forEach(({ playlist, attributes }, index) => {
+    const key = attributes.resolution?.height
+      ? `${attributes.resolution.height}p${
+          attributes.frameRate ? Math.round(attributes.frameRate) : ""
+        }`
+      : `idx_${index}`;
+    const count = keyCount.get(key) ?? 0;
+    keyCount.set(key, count + 1);
+    parsedManifest.set(count === 0 ? key : `${key}_${count}`, playlist.uri);
+  });
+
+  return parsedManifest;
 }
 
 /**

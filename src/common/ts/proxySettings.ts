@@ -59,8 +59,8 @@ export function updateProxySettings(requestFilter?: ProxyRequestType[]) {
     getRequestParams(ProxyRequestType.TwitchWebpage)
   );
 
-  const config = {
-    mode: chrome.proxy.Mode.PAC_SCRIPT,
+  const config: chrome.proxy.ProxyConfig = {
+    mode: "pac_script",
     pacScript: {
       data: `
         function FindProxyForURL(url, host) {
