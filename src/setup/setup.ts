@@ -26,18 +26,18 @@ function init() {
   }
 }
 
-setupFormElement.addEventListener("change", event => {
-  if (!(event.target instanceof HTMLInputElement)) return;
-  if (event.target.name !== "experience") return;
-  const experienceMode = event.target.value as UserExperienceMode;
+setupFormElement.addEventListener("change", e => {
+  if (!(e.target instanceof HTMLInputElement)) return;
+  if (e.target.name !== "experience") return;
+  const experienceMode = e.target.value as UserExperienceMode;
   if (experienceMode === "expertMode") {
     expertModeSegmentElement.removeAttribute("hidden");
   }
   setUserExperienceMode(experienceMode);
 });
 
-setupFormElement.addEventListener("submit", async event => {
-  event.preventDefault();
+setupFormElement.addEventListener("submit", async e => {
+  e.preventDefault();
   // Close the current tab.
   try {
     const tabs = await browser.tabs.query({
