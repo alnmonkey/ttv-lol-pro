@@ -645,7 +645,6 @@ function _listAppend(
     if (itemIndex === -1)
       return console.error(`Item '${text}' not found in '${storeKey}' array`);
 
-    const textInput = e.target as HTMLInputElement;
     const oldText = text;
     const newText = textInput.value.trim();
     // Remove item if text is empty.
@@ -742,7 +741,6 @@ function _listPrompt(
 
   // Update store when text is changed.
   promptInput.addEventListener("change", e => {
-    const promptInput = e.target as HTMLInputElement;
     const text = promptInput.value.trim();
     // Do nothing if text is empty.
     if (text === "") return;
@@ -806,7 +804,7 @@ exportButtonElement.addEventListener("click", () => {
   saveFile(
     "ttv-lol-pro_backup.json",
     JSON.stringify(state, null, 2),
-    "application/json;charset=utf-8"
+    "application/json"
   );
 });
 
@@ -814,7 +812,7 @@ importButtonElement.addEventListener("click", async () => {
   const DEFAULT_STATE_KEYS = Object.keys(DEFAULT_STATE);
 
   try {
-    const data = await readFile("application/json;charset=utf-8");
+    const data = await readFile("application/json");
     const state = JSON.parse(data);
 
     for (const entry of Object.entries(state)) {

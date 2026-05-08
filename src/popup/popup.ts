@@ -239,11 +239,10 @@ proxiedElement.addEventListener("animationend", () => {
   proxiedElement.classList.remove("pulsing");
 });
 
-whitelistToggleElement.addEventListener("change", e => {
+whitelistToggleElement.addEventListener("change", () => {
   const channelNameLower = whitelistStatusElement.getAttribute("data-channel");
   if (!channelNameLower) return alert("Channel name not found.");
-  const target = e.target as HTMLInputElement;
-  const isWhitelisted = target.checked;
+  const isWhitelisted = whitelistToggleElement.checked;
   if (isWhitelisted) {
     // Add channel name to whitelist.
     store.state.whitelistedChannels.push(channelNameLower);

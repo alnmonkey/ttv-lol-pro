@@ -12,9 +12,8 @@ export default function onStartupStoreCleanup(): void {
   if (store.readyState !== "complete")
     return store.addEventListener("load", () => onStartupStoreCleanup());
 
-  const now = Date.now();
   store.state.adLog = store.state.adLog.filter(
-    entry => now - entry.timestamp < 1000 * 60 * 60 * 24 * 7 // 7 days
+    entry => Date.now() - entry.timestamp < 1000 * 60 * 60 * 24 * 7 // 7 days
   );
   const maxAdLogEntries = 100;
   if (store.state.adLog.length > maxAdLogEntries) {
@@ -25,4 +24,7 @@ export default function onStartupStoreCleanup(): void {
   store.state.openedTwitchTabs = [];
   store.state.streamStatuses = {};
   store.state.videoWeaverUrlsByChannel = {};
+
+  console.log("🧹 Session storage cleaned up.");
+  store.state.lastStoreCleanupTimestamp = Date.now();
 }

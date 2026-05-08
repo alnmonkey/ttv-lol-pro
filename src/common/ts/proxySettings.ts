@@ -1,3 +1,4 @@
+import onStartupStoreCleanup from "../../background/handlers/onStartupStoreCleanup";
 import store from "../../store";
 import { ProxyRequestType, ProxyType } from "../../types";
 import isRequestTypeProxied from "./isRequestTypeProxied";
@@ -122,4 +123,11 @@ export function clearProxySettings() {
     console.log("⚙️ Proxy settings cleared");
   });
   store.state.chromiumProxyActive = false;
+
+  if (
+    Date.now() - store.state.lastStoreCleanupTimestamp >
+    1000 * 60 * 60 * 24 * 7 // 7 days
+  ) {
+    onStartupStoreCleanup();
+  }
 }

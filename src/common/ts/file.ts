@@ -3,20 +3,19 @@
  * @param accept
  * @returns
  */
-export async function readFile(accept = "text/plain;charset=utf-8") {
+export async function readFile(accept?: string) {
   return new Promise<string>((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = accept;
-    input.addEventListener("change", async e => {
-      const input = e.target as HTMLInputElement;
+    if (accept) input.accept = accept;
+    input.addEventListener("cancel", () => reject("File selection cancelled"));
+    input.addEventListener("change", async () => {
       const file = input.files?.[0];
       if (!file) return reject("No file selected");
       const data = await file.text();
       return resolve(data);
     });
     input.click();
-    input.remove();
   });
 }
 
@@ -32,8 +31,7 @@ export function saveFile(
   type = "text/plain;charset=utf-8"
 ) {
   const a = document.createElement("a");
-  a.setAttribute("href", `data:${type},` + encodeURIComponent(content));
+  a.setAttribute("href", `data:${type},${encodeURIComponent(content)}`);
   a.setAttribute("download", filename);
   a.click();
-  a.remove();
 }
