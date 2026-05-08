@@ -22,6 +22,7 @@ export default function getDefaultState() {
     },
     customPassportEnabled: false,
     dnsResponses: [],
+    lastStoreCleanupTimestamp: 0,
     normalProxies: getDefaultNormalProxies(),
     openedTwitchTabs: [],
     optimizedProxies: getDefaultOptimizedProxies(),
